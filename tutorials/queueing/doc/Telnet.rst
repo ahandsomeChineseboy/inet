@@ -1,9 +1,10 @@
 Telnet
 ======
 
-This step demonstrates a telnet client and a telnet server module built using queueing components.
-The two modules are similiar to the TelnetClientApp and TelnetServerApp modules available in INET,
-without the IApp interface; as such, the telnet traffic apps can be connected to each other, without
+This step demonstrates a telnet client (TelnetClientTraffic) and a telnet server (TelnetServerTraffic)
+module built using queueing components.
+These two modules are created by copying the TelnetClientApp and TelnetServerApp modules available in INET,
+and omitting the IApp interface. As such, the telnet traffic apps can be connected to each other directly, without
 any sockets or protocols.
 
 .. figure:: media/TelnetClientTraffic.png
