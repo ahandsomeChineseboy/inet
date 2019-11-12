@@ -1,7 +1,7 @@
 Network
 =======
 
-TODO
+This step demonstrates how to combine queueing components to create a simplistic network.
 
 The network contains ... TODO
 

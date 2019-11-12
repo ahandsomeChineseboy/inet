@@ -25,6 +25,11 @@ The network contains ... TODO
    :end-before: //----
    :language: ned
 
+.. literalinclude:: ../QueueingTutorial.ned
+   :start-at: module TestCompoundPacketQueue
+   :end-before: //----
+   :language: ned
+
 .. literalinclude:: ../omnetpp.ini
    :start-at: Config CompoundQueue
    :end-at: weights

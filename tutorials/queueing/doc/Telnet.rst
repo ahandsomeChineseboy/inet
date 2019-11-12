@@ -18,3 +18,23 @@ any sockets or protocols.
 .. figure:: media/TelnetServerTraffic.png
    :width: 80%
    :align: center
+
+.. literalinclude:: ../QueueingTutorial.ned
+   :start-at: network TelnetTutorialStep
+   :end-before: //----
+   :language: ned
+
+.. literalinclude:: ../QueueingTutorial.ned
+   :start-at: module TelnetClientTraffic
+   :end-before: //----
+   :language: ned
+
+.. literalinclude:: ../QueueingTutorial.ned
+   :start-at: module TelnetServerTraffic
+   :end-before: //----
+   :language: ned
+
+.. literalinclude:: ../omnetpp.ini
+   :start-at: Config Telnet
+   :end-at: providingInterval
+   :language: ini
