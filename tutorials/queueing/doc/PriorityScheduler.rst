@@ -8,15 +8,9 @@ where packets are stored temporarily. The single sink is connected to the
 queues using a scheduler (PriorityScheduler). The scheduler forwards packets
 from the queues to the sink in a prioritized way.
 
-TODO
-
-The network contains ... TODO
-
 .. figure:: media/PriorityScheduler.png
    :width: 90%
    :align: center
-
-**TODO** Config
 
 .. literalinclude:: ../QueueingTutorial.ned
    :start-at: network PrioritySchedulerTutorialStep

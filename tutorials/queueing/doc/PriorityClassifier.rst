@@ -9,15 +9,9 @@ connected to the two queues using a classifier (PriorityClassifier). The
 classifier forwards packets from the producer to the queues in a prioritized
 way.
 
-TODO
-
-The network contains ... TODO
-
 .. figure:: media/PriorityClassifier.png
    :width: 90%
    :align: center
-
-**TODO** Config
 
 .. literalinclude:: ../QueueingTutorial.ned
    :start-at: network PriorityClassifierTutorialStep

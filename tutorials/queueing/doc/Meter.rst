@@ -6,13 +6,9 @@ In this step, packets are produced periodically by an active packet source
 (PassivePacketSink). The packet rate is measured and if the rate of packets
 is higher than a predefined threshold, then packets are dropped.
 
-The network contains ... TODO
-
 .. figure:: media/Meter.png
    :width: 90%
    :align: center
-
-**TODO** Config
 
 .. literalinclude:: ../QueueingTutorial.ned
    :start-at: network MeterTutorialStep

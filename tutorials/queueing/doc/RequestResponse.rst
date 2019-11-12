@@ -18,10 +18,6 @@ for each kind of request.
 
 The client consumes the response packets by a passive packet sink (PassivePacketSink).
 
-TODO
-
-The network contains ... TODO
-
 .. figure:: media/ResponseProducer.png
    :width: 70%
    :align: center
@@ -33,8 +29,6 @@ The network contains ... TODO
 .. figure:: media/RequestConsumer.png
    :width: 80%
    :align: center
-
-**TODO** Config
 
 .. literalinclude:: ../QueueingTutorial.ned
    :start-at: network RequestResponseTutorialStep

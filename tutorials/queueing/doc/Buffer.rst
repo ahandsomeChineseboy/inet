@@ -8,13 +8,9 @@ connected by packet queues (TestQueue) and packets are stored in shared packet
 buffer (PacketBuffer). The packet buffer drops packets from the beginning of
 the buffer when it gets overloaded.
 
-The network contains ... TODO
-
 .. figure:: media/Buffer.png
    :width: 80%
    :align: center
-
-**TODO** Config
 
 .. literalinclude:: ../QueueingTutorial.ned
    :start-at: network BufferTutorialStep

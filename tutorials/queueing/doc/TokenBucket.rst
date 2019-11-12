@@ -6,8 +6,6 @@ The packets are pushed to a token bucket module (TokenBucket). A token generator
 generates tokens periodically into the token bucket module. When the token bucket has sufficient
 tokens, it emits a packet into a passive packet sink (PassivePacketSink).
 
-The network contains ... TODO
-
 .. figure:: media/TokenBucket.png
    :width: 60%
    :align: center
@@ -15,8 +13,6 @@ The network contains ... TODO
 .. figure:: media/TokenBucket_Bucket.png
    :width: 80%
    :align: center
-
-**TODO** Config
 
 .. literalinclude:: ../QueueingTutorial.ned
    :start-at: network TokenBucketTutorialStep

@@ -6,13 +6,9 @@ In this step, packets are produced periodically by an active packet source
 (PacketDuplicator). Finally, the packets are all sent into a passive packet
 sink (PassivePacketSink).
 
-The network contains ... TODO
-
 .. figure:: media/Duplicator.png
    :width: 80%
    :align: center
-
-**TODO** Config
 
 .. literalinclude:: ../QueueingTutorial.ned
    :start-at: network DuplicatorTutorialStep

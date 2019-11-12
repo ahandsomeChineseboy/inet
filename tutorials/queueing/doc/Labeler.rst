@@ -8,13 +8,9 @@ classifier (LabelClassifier). The classifier forwards packets alternately to
 one or the other sink based on the packet's label. The label is attached by
 a PacketLabeler based on the packet length.
 
-The network contains ... TODO
-
 .. figure:: media/Labeler.png
    :width: 90%
    :align: center
-
-**TODO** Config
 
 .. literalinclude:: ../QueueingTutorial.ned
    :start-at: network LabelerTutorialStep

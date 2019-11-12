@@ -5,13 +5,9 @@ In this step, packets are collected periodically by an active packet sink
 (ActivePacketSink). The packets are provided by a passive packet source
 (PassivePacketSource).
 
-The network contains ... TODO
-
 .. figure:: media/PassiveSourceActiveSink.png
    :width: 60%
    :align: center
-
-**TODO** Config
 
 .. literalinclude:: ../QueueingTutorial.ned
    :start-at: network ProviderCollectorTutorialStep

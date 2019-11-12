@@ -6,13 +6,9 @@ In this step, packets are produced periodically by an active packet source
 otherwise packets are not generated. The packets are consumed by a passive
 packet sink (PassivePacketSink).
 
-The network contains ... TODO
-
 .. figure:: media/Gate1.png
    :width: 80%
    :align: center
-
-**TODO** Config
 
 .. literalinclude:: ../QueueingTutorial.ned
    :start-at: network Gate1TutorialStep

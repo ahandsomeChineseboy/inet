@@ -7,13 +7,9 @@ In this step, packets are produced periodically by an active packet source
 classifier (PacketClassifier). The classifier forwards packets alternately to
 one or the other sink.
 
-The network contains ... TODO
-
 .. figure:: media/Classifier.png
    :width: 80%
    :align: center
-
-**TODO** Config
 
 .. literalinclude:: ../QueueingTutorial.ned
    :start-at: network ClassifierTutorialStep

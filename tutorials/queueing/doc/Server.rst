@@ -6,15 +6,9 @@ In this step, packets are passed through from the source to the sink periodicall
 by a passive packet source (PassivePacketSource) and consumed by a passive packet sink
 (PassivePacketSink).
 
-TODO
-
-The network contains ... TODO
-
 .. figure:: media/Server.png
    :width: 80%
    :align: center
-
-**TODO** Config
 
 .. literalinclude:: ../QueueingTutorial.ned
    :start-at: network ServerTutorialStep

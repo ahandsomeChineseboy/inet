@@ -7,8 +7,6 @@ an active packet sink (ActivePacketSink). The source and the sink is connected
 by a priority queue with two inner queues (PriorityQueue) where packets are
 stored temporarily.
 
-The network contains ... TODO
-
 .. figure:: media/PriorityQueue.png
    :width: 70%
    :align: center
@@ -16,8 +14,6 @@ The network contains ... TODO
 .. figure:: media/PriorityQueue_Queue.png
    :width: 80%
    :align: center
-
-**TODO** Config
 
 .. literalinclude:: ../QueueingTutorial.ned
    :start-at: network PriorityQueueTutorialStep

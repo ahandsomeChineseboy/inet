@@ -8,13 +8,9 @@ connected by packet queues (PacketQueue) and packets are stored in shared packet
 buffer (PacketBuffer). The packet buffer drops packets when it gets overloaded
 prioritizing over the packet queues.
 
-The network contains ... TODO
-
 .. figure:: media/PriorityBuffer.png
    :width: 80%
    :align: center
-
-**TODO** Config
 
 .. literalinclude:: ../QueueingTutorial.ned
    :start-at: network PriorityBufferTutorialStep

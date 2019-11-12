@@ -6,13 +6,9 @@ In this step, packets are produced periodically by an active packet source
 Packets are passed through from the source to the sink by a duplicator (OrdinalBasedDuplicator).
 Every second packet is duplicated based on its ordinal number.
 
-The network contains ... TODO
-
 .. figure:: media/OrdinalBasedDuplicator.png
    :width: 60%
    :align: center
-
-**TODO** Config
 
 .. literalinclude:: ../QueueingTutorial.ned
    :start-at: network OrdinalBasedDuplicatorTutorialStep

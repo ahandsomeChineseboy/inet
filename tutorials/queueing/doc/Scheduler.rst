@@ -7,15 +7,9 @@ In this step, packets are collected periodically by an active packet sink
 scheduler (WrrScheduler). The scheduler forwards packets alternately from
 one or the other source.
 
-TODO
-
-The network contains ... TODO
-
 .. figure:: media/Scheduler.png
    :width: 80%
    :align: center
-
-**TODO** Config
 
 .. literalinclude:: ../QueueingTutorial.ned
    :start-at: network SchedulerTutorialStep

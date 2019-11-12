@@ -8,8 +8,6 @@ by a compound priority queue (TestCompoundPacketQueue) where packets are stored 
 This queue contains a classifier (PacketClassifier), two queues (PacketQueues),
 and a priorty scheduler (PriortyScheduler).
 
-The network contains ... TODO
-
 .. figure:: media/CompoundQueue.png
    :width: 70%
    :align: center
@@ -17,8 +15,6 @@ The network contains ... TODO
 .. figure:: media/CompoundQueue_Queue.png
    :width: 80%
    :align: center
-
-**TODO** Config
 
 .. literalinclude:: ../QueueingTutorial.ned
    :start-at: network CompoundPacketQueueTutorialStep

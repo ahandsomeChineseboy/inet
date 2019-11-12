@@ -7,13 +7,9 @@ source uses a faster rate. The two packet sources are combined using a markov
 chain with random transition matrix and random wait intervals. The packets are
 consumed by a single passive sink (PassivePacketSink).
 
-The network contains ... TODO
-
 .. figure:: media/Burst1.png
    :width: 80%
    :align: center
-
-**TODO** Config
 
 .. literalinclude:: ../QueueingTutorial.ned
    :start-at: network Burst1TutorialStep

@@ -7,13 +7,9 @@ packet sink upon arrival (PassivePacketSink). The single sink is connected to th
 multiple sources using an intermediary component (PacketMultiplexer) which simply
 forwards packets.
 
-The network contains ... TODO
-
 .. figure:: media/Multiplexer.png
    :width: 80%
    :align: center
-
-**TODO** Config
 
 .. literalinclude:: ../QueueingTutorial.ned
    :start-at: network MultiplexerTutorialStep

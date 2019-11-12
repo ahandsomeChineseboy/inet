@@ -6,15 +6,9 @@ source (ActivePacketSource). The packets are collected periodically (randomly) b
 an active packet sink (ActivePacketSink). The source and the sink is connected
 by a FIFO queue (PacketQueue) where packets are stored temporarily.
 
-TODO
-
-The network contains ... TODO
-
 .. figure:: media/PacketQueue.png
    :width: 80%
    :align: center
-
-**TODO** Config
 
 .. literalinclude:: ../QueueingTutorial.ned
    :start-at: network PacketQueueTutorialStep

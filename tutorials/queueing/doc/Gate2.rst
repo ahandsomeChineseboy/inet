@@ -6,13 +6,9 @@ In this step, packets are collected periodically by an active packet sink
 otherwise packets are not generated. The packets are provided by a passive
 packet source (PassivePacketSource).
 
-The network contains ... TODO
-
 .. figure:: media/Gate2.png
    :width: 80%
    :align: center
-
-**TODO** Config
 
 .. literalinclude:: ../QueueingTutorial.ned
    :start-at: network Gate2TutorialStep

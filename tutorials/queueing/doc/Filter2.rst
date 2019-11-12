@@ -6,13 +6,9 @@ In this step, packets are collected periodically by an active packet sink
 (PassivePacketSource). Packets are passed through from the source to the sink by
 a filter (ContentBasedFilter). Every second packet is dropped.
 
-The network contains ... TODO
-
 .. figure:: media/Filter2.png
    :width: 80%
    :align: center
-
-**TODO** Config
 
 .. literalinclude:: ../QueueingTutorial.ned
    :start-at: network Filter2TutorialStep
