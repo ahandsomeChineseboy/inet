@@ -19,7 +19,9 @@ The network contains ... TODO
 
 **TODO** Config
 
-.. literalinclude:: ../PriorityClassifier.ned
+.. literalinclude:: ../QueueingTutorial.ned
+   :start-at: network PriorityClassifierTutorialStep
+   :end-before: //----
    :language: ned
 
 .. literalinclude:: ../omnetpp.ini

@@ -17,10 +17,12 @@ The network contains ... TODO
 
 **TODO** Config
 
-.. literalinclude:: ../Scheduler.ned
+.. literalinclude:: ../QueueingTutorial.ned
+   :start-at: network SchedulerTutorialStep
+   :end-before: //----
    :language: ned
 
 .. literalinclude:: ../omnetpp.ini
    :start-at: Config Scheduler
-   :end-at: schedulerClass
+   :end-at: weights
    :language: ini

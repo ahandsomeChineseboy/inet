@@ -16,7 +16,9 @@ The network contains ... TODO
 
 **TODO** Config
 
-.. literalinclude:: ../Labeler.ned
+.. literalinclude:: ../QueueingTutorial.ned
+   :start-at: network LabelerTutorialStep
+   :end-before: //----
    :language: ned
 
 .. literalinclude:: ../omnetpp.ini

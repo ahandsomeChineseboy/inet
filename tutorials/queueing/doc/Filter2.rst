@@ -14,10 +14,12 @@ The network contains ... TODO
 
 **TODO** Config
 
-.. literalinclude:: ../Filter2.ned
+.. literalinclude:: ../QueueingTutorial.ned
+   :start-at: network Filter2TutorialStep
+   :end-before: //----
    :language: ned
 
 .. literalinclude:: ../omnetpp.ini
    :start-at: Config Filter2
-   :end-at: filterClass
+   :end-at: packetFilter
    :language: ini

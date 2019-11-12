@@ -13,7 +13,9 @@ The network contains ... TODO
 
 **TODO** Config
 
-.. literalinclude:: ../Delayer.ned
+.. literalinclude:: ../QueueingTutorial.ned
+   :start-at: network DelayerTutorialStep
+   :end-before: //----
    :language: ned
 
 .. literalinclude:: ../omnetpp.ini

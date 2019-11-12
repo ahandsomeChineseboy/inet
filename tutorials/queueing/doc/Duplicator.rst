@@ -14,7 +14,9 @@ The network contains ... TODO
 
 **TODO** Config
 
-.. literalinclude:: ../Duplicator.ned
+.. literalinclude:: ../QueueingTutorial.ned
+   :start-at: network DuplicatorTutorialStep
+   :end-before: //----
    :language: ned
 
 .. literalinclude:: ../omnetpp.ini

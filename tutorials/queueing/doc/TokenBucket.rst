@@ -18,10 +18,12 @@ The network contains ... TODO
 
 **TODO** Config
 
-.. literalinclude:: ../TokenBucket.ned
+.. literalinclude:: ../QueueingTutorial.ned
+   :start-at: network TokenBucketTutorialStep
+   :end-before: //----
    :language: ned
 
 .. literalinclude:: ../omnetpp.ini
    :start-at: Config TokenBucket
-   :end-at: TokenBucketNetwork
+   :end-at: generationInterval
    :language: ini

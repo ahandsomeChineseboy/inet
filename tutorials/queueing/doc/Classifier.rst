@@ -15,10 +15,12 @@ The network contains ... TODO
 
 **TODO** Config
 
-.. literalinclude:: ../Classifier.ned
+.. literalinclude:: ../QueueingTutorial.ned
+   :start-at: network ClassifierTutorialStep
+   :end-before: //----
    :language: ned
 
 .. literalinclude:: ../omnetpp.ini
    :start-at: Config Classifier
-   :end-at: classifierClass
+   :end-at: weights
    :language: ini

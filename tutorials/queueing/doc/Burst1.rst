@@ -15,7 +15,9 @@ The network contains ... TODO
 
 **TODO** Config
 
-.. literalinclude:: ../Burst1.ned
+.. literalinclude:: ../QueueingTutorial.ned
+   :start-at: network Burst1TutorialStep
+   :end-before: //----
    :language: ned
 
 .. literalinclude:: ../omnetpp.ini

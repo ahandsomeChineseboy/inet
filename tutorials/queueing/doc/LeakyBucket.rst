@@ -17,7 +17,9 @@ The network contains ... TODO
 
 **TODO** Config
 
-.. literalinclude:: ../LeakyBucket.ned
+.. literalinclude:: ../QueueingTutorial.ned
+   :start-at: network LeakyBucketTutorialStep
+   :end-before: //----
    :language: ned
 
 .. literalinclude:: ../omnetpp.ini

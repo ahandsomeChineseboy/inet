@@ -20,10 +20,12 @@ The network contains ... TODO
 
 **TODO** Config
 
-.. literalinclude:: ../CompoundQueue.ned
+.. literalinclude:: ../QueueingTutorial.ned
+   :start-at: network CompoundPacketQueueTutorialStep
+   :end-before: //----
    :language: ned
 
 .. literalinclude:: ../omnetpp.ini
    :start-at: Config CompoundQueue
-   :end-at: classifierClass
+   :end-at: weights
    :language: ini

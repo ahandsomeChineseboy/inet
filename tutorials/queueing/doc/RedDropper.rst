@@ -13,7 +13,9 @@ The network contains ... TODO
 
 **TODO** Config
 
-.. literalinclude:: ../RedDropper.ned
+.. literalinclude:: ../QueueingTutorial.ned
+   :start-at: network RedDropperTutorialStep
+   :end-before: //----
    :language: ned
 
 .. literalinclude:: ../omnetpp.ini

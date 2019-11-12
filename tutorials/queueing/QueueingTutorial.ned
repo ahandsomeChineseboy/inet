@@ -47,7 +47,7 @@ import inet.queueing.tokengenerator.PacketBasedTokenGenerator;
 import inet.queueing.tokengenerator.TimeBasedTokenGenerator;
 
 
-network ProducerConsumerNetwork
+network ProducerConsumerTutorialStep
 {
     @display("bgb=400,200");
     submodules:
@@ -61,7 +61,9 @@ network ProducerConsumerNetwork
         producer.out --> consumer.in;
 }
 
-network BufferNetwork
+//-------------------------------------------------
+
+network BufferTutorialStep
 {
     submodules:
         buffer: PacketBuffer {
@@ -92,7 +94,9 @@ network BufferNetwork
         queue2.out --> collector2.in;
 }
 
-network Burst1Network
+//-------------------------------------------------
+
+network Burst1TutorialStep
 {
     @display("bgb=600,300");
     submodules:
@@ -114,7 +118,10 @@ network Burst1Network
         scheduler.out --> consumer.in;
 }
 
-network Burst2Network
+//-------------------------------------------------
+
+
+network Burst2TutorialStep
 {
     @display("bgb=600,300");
     submodules:
@@ -136,7 +143,10 @@ network Burst2Network
         classifier.out++ --> collector2.in;
 }
 
-network ClassifierNetwork
+//-------------------------------------------------
+
+
+network ClassifierTutorialStep
 {
     @display("bgb=600,300");
     submodules:
@@ -157,6 +167,9 @@ network ClassifierNetwork
         classifier.out++ --> consumer1.in;
         classifier.out++ --> consumer2.in;
 }
+
+//-------------------------------------------------
+
 
 module TestCompoundPacketQueue extends CompoundPacketQueue
 {
@@ -184,7 +197,10 @@ module TestCompoundPacketQueue extends CompoundPacketQueue
         scheduler.out --> { @display("m=e"); } --> out;
 }
 
-network CompoundPacketQueueNetwork
+//-------------------------------------------------
+
+
+network CompoundPacketQueueTutorialStep
 {
     @display("bgb=600,200");
     submodules:
@@ -202,7 +218,10 @@ network CompoundPacketQueueNetwork
         queue.out --> collector.in;
 }
 
-network DelayerNetwork
+//-------------------------------------------------
+
+
+network DelayerTutorialStep
 {
     @display("bgb=600,200");
     submodules:
@@ -220,7 +239,10 @@ network DelayerNetwork
         delayer.out --> consumer.in;
 }
 
-network DemultiplexerNetwork
+//-------------------------------------------------
+
+
+network DemultiplexerTutorialStep
 {
     parameters:
         //    	@display("bgb=600");
@@ -242,7 +264,10 @@ network DemultiplexerNetwork
         }
 }
 
-network DuplicatorNetwork
+//-------------------------------------------------
+
+
+network DuplicatorTutorialStep
 {
     @display("bgb=600,200");
     submodules:
@@ -260,7 +285,10 @@ network DuplicatorNetwork
         duplicator.out --> consumer.in;
 }
 
-network Filter1Network
+//-------------------------------------------------
+
+
+network Filter1TutorialStep
 {
     @display("bgb=600,200");
     submodules:
@@ -278,7 +306,10 @@ network Filter1Network
         filter.out --> consumer.in;
 }
 
-network Filter2Network
+//-------------------------------------------------
+
+
+network Filter2TutorialStep
 {
     @display("bgb=600,200");
     submodules:
@@ -296,7 +327,10 @@ network Filter2Network
         filter.out --> collector.in;
 }
 
-network Gate1Network
+//-------------------------------------------------
+
+
+network Gate1TutorialStep
 {
     @display("bgb=600,200");
     submodules:
@@ -314,7 +348,10 @@ network Gate1Network
         gate.out --> consumer.in;
 }
 
-network Gate2Network
+//-------------------------------------------------
+
+
+network Gate2TutorialStep
 {
     @display("bgb=600,200");
     submodules:
@@ -332,7 +369,10 @@ network Gate2Network
         gate.out --> collector.in;
 }
 
-network LabelerNetwork
+//-------------------------------------------------
+
+
+network LabelerTutorialStep
 {
     @display("bgb=800,300");
     submodules:
@@ -358,7 +398,10 @@ network LabelerNetwork
         classifier.out++ --> consumer2.in;
 }
 
-network LeakyBucketNetwork
+//-------------------------------------------------
+
+
+network LeakyBucketTutorialStep
 {
     submodules:
         producer: ActivePacketSource {
@@ -375,7 +418,10 @@ network LeakyBucketNetwork
         bucket.out --> consumer.in;
 }
 
-network MeterNetwork
+//-------------------------------------------------
+
+
+network MeterTutorialStep
 {
     @display("bgb=800,200");
     submodules:
@@ -397,7 +443,10 @@ network MeterNetwork
         limiter.out --> consumer.in;
 }
 
-network MultiplexerNetwork
+//-------------------------------------------------
+
+
+network MultiplexerTutorialStep
 {
     parameters:
         int numProducers;
@@ -417,6 +466,9 @@ network MultiplexerNetwork
         }
         multiplexer.out --> consumer.in;
 }
+
+//-------------------------------------------------
+
 
 module TestInterface
 {
@@ -439,6 +491,9 @@ module TestInterface
         server.out --> { @display("m=s"); } --> lowerOut;
         lowerIn --> { @display("m=m,66,100,66,0"); } --> upperOut;
 }
+
+//-------------------------------------------------
+
 
 module TestHost
 {
@@ -464,6 +519,9 @@ module TestHost
         interface.upperOut --> destinationApplication.in;
 }
 
+//-------------------------------------------------
+
+
 module TestCable
 {
     parameters:
@@ -487,7 +545,7 @@ module TestCable
         bDelayer.out --> { @display("m=w"); } --> bOut;
 }
 
-network TestNetwork
+network TestNetworkTutorialStep
 {
     submodules:
         source: TestHost {
@@ -506,7 +564,10 @@ network TestNetwork
         cable.bOut --> source.lowerIn;
 }
 
-network OrdinalBasedDropperNetwork
+//-------------------------------------------------
+
+
+network OrdinalBasedDropperTutorialStep
 {
     @display("bgb=600,200");
     submodules:
@@ -524,7 +585,10 @@ network OrdinalBasedDropperNetwork
         dropper.out --> consumer.in;
 }
 
-network OrdinalBasedDuplicatorNetwork
+//-------------------------------------------------
+
+
+network OrdinalBasedDuplicatorTutorialStep
 {
     submodules:
         producer: ActivePacketSource {
@@ -541,7 +605,10 @@ network OrdinalBasedDuplicatorNetwork
         duplicator.out --> consumer.in;
 }
 
-network ProviderCollectorNetwork
+//-------------------------------------------------
+
+
+network ProviderCollectorTutorialStep
 {
     @display("bgb=400,200");
     submodules:
@@ -555,7 +622,10 @@ network ProviderCollectorNetwork
         provider.out --> collector.in;
 }
 
-network PriorityBufferNetwork
+//-------------------------------------------------
+
+
+network PriorityBufferTutorialStep
 {
     submodules:
         buffer: PriorityBuffer {
@@ -586,7 +656,10 @@ network PriorityBufferNetwork
         queue2.out --> collector2.in;
 }
 
-network PriorityClassifierNetwork
+//-------------------------------------------------
+
+
+network PriorityClassifierTutorialStep
 {
     @display("bgb=800,300");
     submodules:
@@ -616,7 +689,10 @@ network PriorityClassifierNetwork
         queue2.out --> collector2.in;
 }
 
-network PriorityQueueNetwork
+//-------------------------------------------------
+
+
+network PriorityQueueTutorialStep
 {
     @display("bgb=600,200");
     submodules:
@@ -634,7 +710,10 @@ network PriorityQueueNetwork
         queue.out --> collector.in;
 }
 
-network PrioritySchedulerNetwork
+//-------------------------------------------------
+
+
+network PrioritySchedulerTutorialStep
 {
     @display("bgb=800,300");
     submodules:
@@ -664,7 +743,10 @@ network PrioritySchedulerNetwork
         scheduler.out --> collector.in;
 }
 
-network QueueFillerNetwork
+//-------------------------------------------------
+
+
+network QueueFillerTutorialStep
 {
     @display("bgb=600,200");
     submodules:
@@ -682,7 +764,10 @@ network QueueFillerNetwork
         queue.out --> collector.in;
 }
 
-network PacketQueueNetwork
+//-------------------------------------------------
+
+
+network PacketQueueTutorialStep
 {
     @display("bgb=600,200");
     submodules:
@@ -700,7 +785,10 @@ network PacketQueueNetwork
         queue.out --> collector.in;
 }
 
-network RedDropperNetwork
+//-------------------------------------------------
+
+
+network RedDropperTutorialStep
 {
     @display("bgb=1250,300");
     submodules:
@@ -720,7 +808,10 @@ network RedDropperNetwork
         dropper1.out --> queue1.in;
 }
 
-network RequestResponseNetwork
+//-------------------------------------------------
+
+
+network RequestResponseTutorialStep
 {
     @display("bgb=400,300");
     submodules:
@@ -741,7 +832,10 @@ network RequestResponseNetwork
         responseProducer.out --> responseConsumer.in;
 }
 
-network SchedulerNetwork
+//-------------------------------------------------
+
+
+network SchedulerTutorialStep
 {
     @display("bgb=600,300");
     submodules:
@@ -763,7 +857,10 @@ network SchedulerNetwork
         scheduler.out --> collector.in;
 }
 
-network ServerNetwork
+//-------------------------------------------------
+
+
+network ServerTutorialStep
 {
     @display("bgb=600,200");
     submodules:
@@ -781,7 +878,10 @@ network ServerNetwork
         server.out --> consumer.in;
 }
 
-network TaggerNetwork
+//-------------------------------------------------
+
+
+network TaggerTutorialStep
 {
     @display("bgb=600,200");
     submodules:
@@ -799,7 +899,10 @@ network TaggerNetwork
         tagger.out --> consumer.in;
 }
 
-network TelnetNetwork
+//-------------------------------------------------
+
+
+network TelnetTutorialStep
 {
     @display("bgb=400,200");
     submodules:
@@ -813,6 +916,9 @@ network TelnetNetwork
         client.out --> server.in;
         client.in <-- server.out;
 }
+
+//-------------------------------------------------
+
 
 module TelnetClientTraffic
 {
@@ -857,6 +963,9 @@ module TelnetClientTraffic
         scheduler.out --> { @display("m=s"); } --> out;
         in --> { @display("m=s"); } --> consumer.in;
 }
+
+//-------------------------------------------------
+
 
 module TelnetServerTraffic
 {
@@ -907,7 +1016,10 @@ module TelnetServerTraffic
         multiplexer.out --> { @display("m=s"); } --> out;
 }
 
-network TokenBucketNetwork
+//-------------------------------------------------
+
+
+network TokenBucketTutorialStep
 {
     submodules:
         producer: ActivePacketSource {
@@ -926,3 +1038,5 @@ network TokenBucketNetwork
         producer.out --> bucket.in;
         bucket.out --> consumer.in;
 }
+
+//-------------------------------------------------

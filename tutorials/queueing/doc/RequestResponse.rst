@@ -36,7 +36,9 @@ The network contains ... TODO
 
 **TODO** Config
 
-.. literalinclude:: ../RequestResponse.ned
+.. literalinclude:: ../QueueingTutorial.ned
+   :start-at: network RequestResponseTutorialStep
+   :end-before: //----
    :language: ned
 
 .. literalinclude:: ../omnetpp.ini

@@ -19,7 +19,9 @@ The network contains ... TODO
 
 **TODO** Config
 
-.. literalinclude:: ../PriorityQueue.ned
+.. literalinclude:: ../QueueingTutorial.ned
+   :start-at: network PriorityQueueTutorialStep
+   :end-before: //----
    :language: ned
 
 .. literalinclude:: ../omnetpp.ini

@@ -13,7 +13,9 @@ The network contains ... TODO
 
 **TODO** Config
 
-.. literalinclude:: ../ActiveSourcePassiveSink.ned
+.. literalinclude:: ../QueueingTutorial.ned
+   :start-at: network ProducerConsumerTutorialStep
+   :end-before: //----
    :language: ned
 
 .. literalinclude:: ../omnetpp.ini

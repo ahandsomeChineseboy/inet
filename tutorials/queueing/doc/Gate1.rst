@@ -14,7 +14,9 @@ The network contains ... TODO
 
 **TODO** Config
 
-.. literalinclude:: ../Gate1.ned
+.. literalinclude:: ../QueueingTutorial.ned
+   :start-at: network Gate1TutorialStep
+   :end-before: //----
    :language: ned
 
 .. literalinclude:: ../omnetpp.ini

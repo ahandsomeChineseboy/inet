@@ -14,7 +14,9 @@ The network contains ... TODO
 
 **TODO** Config
 
-.. literalinclude:: ../Meter.ned
+.. literalinclude:: ../QueueingTutorial.ned
+   :start-at: network MeterTutorialStep
+   :end-before: //----
    :language: ned
 
 .. literalinclude:: ../omnetpp.ini
