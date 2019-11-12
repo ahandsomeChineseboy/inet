@@ -37,12 +37,1152 @@
 
 #include <sys/types.h>
 #define MAXBUFLEN 1<<16
+#define PAD_LEN(x) ((4 - (x & 3)) & 3)
 
 namespace inet {
 
 namespace sctp {
 
 Register_Serializer(SctpHeader, SctpHeaderSerializer);
+
+namespace {
+
+// TODO: chunks must be padded to 4 bytes boundary, padding should not be included in the length field
+
+void serializeDataChunk(MemoryOutputStream& stream, const Ptr<SctpDataChunk> dataChunk) {
+    stream.writeByte(dataChunk->getSctpChunkType());
+    stream.writeNBitsOfUint64Be(0, 4);
+    stream.writeBit(dataChunk->getIBit());
+    stream.writeBit(dataChunk->getUBit());
+    stream.writeBit(dataChunk->getBBit());
+    stream.writeBit(dataChunk->getEBit());
+    stream.writeUint16Be(dataChunk->getByteLength());
+    stream.writeUint32Be(dataChunk->getTsn());
+    stream.writeUint16Be(dataChunk->getSid());
+    stream.writeUint16Be(dataChunk->getSsn());
+    stream.writeUint64Be(dataChunk->getPpid());
+    SctpSimpleMessage *smsg = check_and_cast<SctpSimpleMessage *>(dataChunk->getEncapsulatedPacket());
+    const uint32_t datalen = smsg->getDataLen();
+    if (smsg->getDataArraySize() >= datalen) {
+        for (uint32_t i = 0; i < datalen; ++i) {
+            stream.writeByte(smsg->getData(i));
+        }
+    }
+    // TODO: padding to 4 bytes boundary
+}
+
+void deserializeDataChunk(MemoryInputStream& stream, const Ptr<SctpDataChunk> dataChunk) {
+    B startPos = stream.getRemainingLength();
+    dataChunk->setSctpChunkType(stream.readByte());
+    stream.readNBitsToUint64Be(4);
+    dataChunk->setIBit(stream.readBit());
+    dataChunk->setUBit(stream.readBit());
+    dataChunk->setBBit(stream.readBit());
+    dataChunk->setEBit(stream.readBit());
+    dataChunk->setByteLength(stream.readUint16Be());
+    dataChunk->setTsn(stream.readUint32Be());
+    dataChunk->setSid(stream.readUint16Be());
+    dataChunk->setSsn(stream.readUint16Be());
+    dataChunk->setPpid(stream.readUint64Be());
+    const uint32_t datalen = B(startPos - stream.getRemainingLength()).get();
+    if (datalen > 0) {
+        SctpSimpleMessage *smsg = new SctpSimpleMessage("data");
+        smsg->setBitLength(datalen * 8);
+        smsg->setDataLen(datalen);
+        smsg->setDataArraySize(datalen);
+        for (uint32_t i = 0; i < datalen; ++i) {
+            smsg->setData(i, stream.readByte());
+        }
+        dataChunk->encapsulate(smsg);
+    }
+    // TODO: padding??
+}
+
+void serializeInitChunk(MemoryOutputStream& stream, const Ptr<SctpInitChunk> initChunk) {
+    stream.writeByte(initChunk->getSctpChunkType());
+    stream.writeByte(0);
+    stream.writeUint16Be(initChunk->getByteLength());
+    stream.writeUint32Be(initChunk->getInitTag());
+    stream.writeUint32Be(initChunk->getA_rwnd());
+    stream.writeUint16Be(initChunk->getNoOutStreams());
+    stream.writeUint16Be(initChunk->getNoInStreams());
+    stream.writeUint32Be(initChunk->getInitTsn());
+    // Supported Address Types Parameter
+    if (initChunk->getIpv4Supported() || initChunk->getIpv6Supported()) {
+        stream.writeUint16Be(INIT_SUPPORTED_ADDRESS);
+        stream.writeUint16Be(8);
+        if (initChunk->getIpv4Supported() && initChunk->getIpv6Supported()) {
+            stream.writeUint16Be(INIT_PARAM_IPV4);
+            stream.writeUint16Be(INIT_PARAM_IPV6);
+        }
+        else if (initChunk->getIpv4Supported()) {
+            stream.writeUint16Be(INIT_PARAM_IPV4);
+            stream.writeUint16Be(0);
+        }
+        else {
+            stream.writeUint16Be(INIT_PARAM_IPV6);
+            stream.writeUint16Be(0);
+        }
+    }
+    // Forward-TSN-Supported Parameter
+    if (initChunk->getForwardTsn() == true) {
+        stream.writeUint16Be(FORWARD_TSN_SUPPORTED_PARAMETER);
+        stream.writeUint16Be(4);
+    }
+    // IPv4 Address Parameter & IPv6 Address Parameter
+    int32_t numaddr = initChunk->getAddressesArraySize();
+    for (int32_t i = 0; i < numaddr; i++) {
+        if (initChunk->getAddresses(i).getType() == L3Address::IPv4) {
+            stream.writeUint16Be(INIT_PARAM_IPV4);
+            stream.writeUint16Be(8);
+            stream.writeIpv4Address(initChunk->getAddresses(i).toIpv4());
+        }
+        else if (initChunk->getAddresses(i).getType() == L3Address::IPv6) {
+            stream.writeUint16Be(INIT_PARAM_IPV6);
+            stream.writeUint16Be(20);
+            stream.writeIpv6Address(initChunk->getAddresses(i).toIpv6());
+        }
+    }
+    // Supported Extensions Parameter
+    uint64_t chunkCount = initChunk->getSepChunksArraySize();
+    if (chunkCount > 0) {
+        stream.writeUint16Be(SUPPORTED_EXTENSIONS);
+        stream.writeUint16Be(4 + chunkCount);
+        for (uint64_t i = 0; i < chunkCount; ++i) {
+            stream.writeByte(initChunk->getSepChunks(i));
+        }
+    }
+    // Random Parameter
+    uint64_t randomCount = initChunk->getRandomArraySize();
+    if (randomCount > 0) {
+        stream.writeUint16Be(RANDOM);
+        stream.writeUint16Be(4 + randomCount);
+        for (uint64_t i = 0; i < randomCount; ++i) {
+            stream.writeByte(initChunk->getRandom(i));
+        }
+    }
+    // Chunk List Parameter
+    uint64_t chunkTypeCount = initChunk->getSctpChunkTypesArraySize();
+    if (chunkTypeCount > 0) {
+        stream.writeUint16Be(CHUNKS);
+        stream.writeUint16Be(4 + chunkTypeCount);
+        for (uint64_t i = 0; i < chunkTypeCount; ++i) {
+            stream.writeByte(initChunk->getSctpChunkTypes(i));
+        }
+    }
+    // Requested HMAC Algorithm Parameter
+    uint64_t hmacCount = initChunk->getHmacTypesArraySize();
+    if (hmacCount > 0) {
+        stream.writeUint16Be(HMAC_ALGO);
+        stream.writeUint16Be(4 + 2 * hmacCount);
+        for (uint64_t i = 0; i < hmacCount; ++i) {
+            stream.writeUint16Be(initChunk->getHmacTypes(i));
+        }
+    }
+}
+
+void deserializeInitChunk(MemoryInputStream& stream, const Ptr<SctpInitChunk> initChunk) {
+    initChunk->setSctpChunkType(stream.readByte());
+    stream.readByte();
+    initChunk->setByteLength(stream.readUint16Be());
+    initChunk->setInitTag(stream.readUint32Be());
+    initChunk->setA_rwnd(stream.readUint32Be());
+    initChunk->setNoOutStreams(stream.readUint16Be());
+    initChunk->setNoInStreams(stream.readUint16Be());
+    initChunk->setInitTsn(stream.readUint32Be());
+    uint64_t readBytes = 20;
+    while (readBytes < uint64_t(initChunk->getByteLength())) {
+        uint16_t chunkType = stream.readUint16Be();
+        uint16_t length = stream.readUint16Be();
+        readBytes += length;
+        switch (chunkType) {
+            case INIT_SUPPORTED_ADDRESS: {
+                uint16_t firstEntry = stream.readUint16Be();
+                uint16_t secondEntry = stream.readUint16Be();
+                if (firstEntry == INIT_PARAM_IPV4) {
+                    initChunk->setIpv4Supported(true);
+                }
+                if (firstEntry == INIT_PARAM_IPV6 || secondEntry == INIT_PARAM_IPV6) {
+                    initChunk->setIpv6Supported(true);
+                }
+                break;
+            }
+            case FORWARD_TSN_SUPPORTED_PARAMETER: {
+                initChunk->setSepChunksArraySize(length - 4);
+                for (uint64_t i = 0; i < uint64_t(length - 4); ++i) {
+                    initChunk->setSepChunks(i, stream.readByte());
+                }
+                break;
+            }
+            case INIT_PARAM_IPV4: {
+                initChunk->setAddressesArraySize(initChunk->getAddressesArraySize() + 1);
+                initChunk->setAddresses(initChunk->getAddressesArraySize() - 1, stream.readIpv4Address());
+                break;
+            }
+            case INIT_PARAM_IPV6: {
+                initChunk->setAddressesArraySize(initChunk->getAddressesArraySize() + 1);
+                initChunk->setAddresses(initChunk->getAddressesArraySize() - 1, stream.readIpv6Address());
+                break;
+            }
+            case SUPPORTED_EXTENSIONS: {
+                initChunk->setSepChunksArraySize(length - 4);
+                for (uint64_t i = 0; i < uint64_t(length - 4); ++i) {
+                    initChunk->setSepChunks(i, stream.readByte());
+                }
+                break;
+            }
+            case RANDOM: {
+                initChunk->setRandomArraySize(length - 4);
+                for (uint64_t i = 0; i < uint64_t(length - 4); ++i) {
+                    initChunk->setRandom(i, stream.readByte());
+                }
+                break;
+            }
+            case CHUNKS: {
+                initChunk->setSctpChunkTypesArraySize(length - 4);
+                for (uint64_t i = 0; i < uint64_t(length - 4); ++i) {
+                    initChunk->setSctpChunkTypes(i, stream.readByte());
+                }
+                break;
+            }
+            case HMAC_ALGO: {
+                initChunk->setHmacTypesArraySize((length - 4) / 2);
+                for (uint64_t i = 0; i < uint64_t((length - 4) / 2); ++i) {
+                    initChunk->setHmacTypes(i, stream.readUint16Be());
+                }
+                break;
+            }
+            default: {
+                break;
+            }
+        }
+    }
+}
+
+void serializeInitAckChunk(MemoryOutputStream& stream, const Ptr<SctpInitAckChunk> initAckChunk) {
+    stream.writeByte(initAckChunk->getSctpChunkType());
+    stream.writeByte(0);
+    stream.writeUint16Be(initAckChunk->getByteLength());
+    stream.writeUint32Be(initAckChunk->getInitTag());
+    stream.writeUint32Be(initAckChunk->getA_rwnd());
+    stream.writeUint16Be(initAckChunk->getNoOutStreams());
+    stream.writeUint16Be(initAckChunk->getNoInStreams());
+    stream.writeUint32Be(initAckChunk->getInitTsn());
+    // Supported Address Types Parameter
+    if (initAckChunk->getIpv4Supported() || initAckChunk->getIpv6Supported()) {
+        stream.writeUint16Be(INIT_SUPPORTED_ADDRESS);
+        stream.writeUint16Be(8);
+        if (initAckChunk->getIpv4Supported() && initAckChunk->getIpv6Supported()) {
+            stream.writeUint16Be(INIT_PARAM_IPV4);
+            stream.writeUint16Be(INIT_PARAM_IPV6);
+        }
+        else if (initAckChunk->getIpv4Supported()) {
+            stream.writeUint16Be(INIT_PARAM_IPV4);
+            stream.writeUint16Be(0);
+        }
+        else {
+            stream.writeUint16Be(INIT_PARAM_IPV6);
+            stream.writeUint16Be(0);
+        }
+    }
+    // Forward-TSN-Supported Parameter
+    if (initAckChunk->getForwardTsn() == true) {
+        stream.writeUint16Be(FORWARD_TSN_SUPPORTED_PARAMETER);
+        stream.writeUint16Be(4);
+    }
+    // IPv4 Address Parameter & IPv6 Address Parameter
+    int32_t numaddr = initAckChunk->getAddressesArraySize();
+    for (int32_t i = 0; i < numaddr; i++) {
+        if (initAckChunk->getAddresses(i).getType() == L3Address::IPv4) {
+            stream.writeUint16Be(INIT_PARAM_IPV4);
+            stream.writeUint16Be(8);
+            stream.writeIpv4Address(initAckChunk->getAddresses(i).toIpv4());
+        }
+        else if (initAckChunk->getAddresses(i).getType() == L3Address::IPv6) {
+            stream.writeUint16Be(INIT_PARAM_IPV6);
+            stream.writeUint16Be(20);
+            stream.writeIpv6Address(initAckChunk->getAddresses(i).toIpv6());
+        }
+    }
+    // Supported Extensions Parameter
+    uint64_t chunkCount = initAckChunk->getSepChunksArraySize();
+    if (chunkCount > 0) {
+        stream.writeUint16Be(SUPPORTED_EXTENSIONS);
+        stream.writeUint16Be(4 + chunkCount);
+        for (uint64_t i = 0; i < chunkCount; ++i) {
+            stream.writeByte(initAckChunk->getSepChunks(i));
+        }
+    }
+    // Unrecognized Parameters
+    uint64_t unrecognizedCount = initAckChunk->getUnrecognizedParametersArraySize();
+    if (unrecognizedCount > 0) {
+        stream.writeUint16Be(UNRECOGNIZED_PARAMETER);
+        stream.writeUint16Be(4 + unrecognizedCount);
+        for (uint64_t i = 0; i < unrecognizedCount; ++i) {
+            stream.writeByte(initAckChunk->getUnrecognizedParameters(i));
+        }
+    }
+    // Random Parameter
+    uint64_t randomCount = initAckChunk->getRandomArraySize();
+    if (randomCount > 0) {
+        stream.writeUint16Be(RANDOM);
+        stream.writeUint16Be(4 + randomCount);
+        for (uint64_t i = 0; i < randomCount; ++i) {
+            stream.writeByte(initAckChunk->getRandom(i));
+        }
+    }
+    // Chunk List Parameter
+    uint64_t chunkTypeCount = initAckChunk->getSctpChunkTypesArraySize();
+    if (chunkTypeCount > 0) {
+        stream.writeUint16Be(CHUNKS);
+        stream.writeUint16Be(4 + chunkTypeCount);
+        for (uint64_t i = 0; i < chunkTypeCount; ++i) {
+            stream.writeByte(initAckChunk->getSctpChunkTypes(i));
+        }
+    }
+    // Requested HMAC Algorithm Parameter
+    uint64_t hmacCount = initAckChunk->getHmacTypesArraySize();
+    if (hmacCount > 0) {
+        stream.writeUint16Be(HMAC_ALGO);
+        stream.writeUint16Be(4 + 2 * hmacCount);
+        for (uint64_t i = 0; i < hmacCount; ++i) {
+            stream.writeUint16Be(initAckChunk->getHmacTypes(i));
+        }
+    }
+    // State Cookie Parameter: FIXME
+}
+
+void deserializeInitAckChunk(MemoryInputStream& stream, const Ptr<SctpInitAckChunk> initAckChunk) {
+    initAckChunk->setSctpChunkType(stream.readByte());
+    stream.readByte();
+    initAckChunk->setByteLength(stream.readUint16Be());
+    initAckChunk->setInitTag(stream.readUint32Be());
+    initAckChunk->setA_rwnd(stream.readUint32Be());
+    initAckChunk->setNoOutStreams(stream.readUint16Be());
+    initAckChunk->setNoInStreams(stream.readUint16Be());
+    initAckChunk->setInitTsn(stream.readUint32Be());
+    uint64_t readBytes = 20;
+    while (readBytes < uint64_t(initAckChunk->getByteLength())) {
+        uint16_t chunkType = stream.readUint16Be();
+        uint16_t length = stream.readUint16Be();
+        readBytes += length;
+        switch (chunkType) {
+            case INIT_SUPPORTED_ADDRESS: {
+                uint16_t firstEntry = stream.readUint16Be();
+                uint16_t secondEntry = stream.readUint16Be();
+                if (firstEntry == INIT_PARAM_IPV4) {
+                    initAckChunk->setIpv4Supported(true);
+                }
+                if (firstEntry == INIT_PARAM_IPV6 || secondEntry == INIT_PARAM_IPV6) {
+                    initAckChunk->setIpv6Supported(true);
+                }
+                break;
+            }
+            case FORWARD_TSN_SUPPORTED_PARAMETER: {
+                initAckChunk->setSepChunksArraySize(length - 4);
+                for (uint64_t i = 0; i < uint64_t(length - 4); ++i) {
+                    initAckChunk->setSepChunks(i, stream.readByte());
+                }
+                break;
+            }
+            case INIT_PARAM_IPV4: {
+                initAckChunk->setAddressesArraySize(initAckChunk->getAddressesArraySize() + 1);
+                initAckChunk->setAddresses(initAckChunk->getAddressesArraySize() - 1, stream.readIpv4Address());
+                break;
+            }
+            case INIT_PARAM_IPV6: {
+                initAckChunk->setAddressesArraySize(initAckChunk->getAddressesArraySize() + 1);
+                initAckChunk->setAddresses(initAckChunk->getAddressesArraySize() - 1, stream.readIpv6Address());
+                break;
+            }
+            case UNRECOGNIZED_PARAMETER: {
+                initAckChunk->setUnrecognizedParametersArraySize(length - 4);
+                for (uint64_t i = 0; i < uint64_t(length - 4); ++i) {
+                    initAckChunk->setUnrecognizedParameters(i, stream.readByte());
+                }
+                break;
+            }
+            case SUPPORTED_EXTENSIONS: {
+                initAckChunk->setSepChunksArraySize(length - 4);
+                for (uint64_t i = 0; i < uint64_t(length - 4); ++i) {
+                    initAckChunk->setSepChunks(i, stream.readByte());
+                }
+                break;
+            }
+            case RANDOM: {
+                initAckChunk->setRandomArraySize(length - 4);
+                for (uint64_t i = 0; i < uint64_t(length - 4); ++i) {
+                    initAckChunk->setRandom(i, stream.readByte());
+                }
+                break;
+            }
+            case CHUNKS: {
+                initAckChunk->setSctpChunkTypesArraySize(length - 4);
+                for (uint64_t i = 0; i < uint64_t(length - 4); ++i) {
+                    initAckChunk->setSctpChunkTypes(i, stream.readByte());
+                }
+                break;
+            }
+            case HMAC_ALGO: {
+                initAckChunk->setHmacTypesArraySize((length - 4) / 2);
+                for (uint64_t i = 0; i < uint64_t((length - 4) / 2); ++i) {
+                    initAckChunk->setHmacTypes(i, stream.readUint16Be());
+                }
+                break;
+            }
+            // State Cookie Parameter: FIXME
+            default: {
+                break;
+            }
+        }
+    }
+}
+
+void serializeSackChunk(MemoryOutputStream& stream, const Ptr<SctpSackChunk> sackChunk) {
+    stream.writeByte(sackChunk->getSctpChunkType());
+    stream.writeByte(0);
+    stream.writeUint16Be(sackChunk->getByteLength());
+    uint32_t cumtsnack = sackChunk->getCumTsnAck();
+    stream.writeUint32Be(cumtsnack);
+    stream.writeUint32Be(sackChunk->getA_rwnd());
+    uint16_t numgaps = sackChunk->getNumGaps();
+    stream.writeUint16Be(numgaps);
+    uint16_t numdups = sackChunk->getNumDupTsns();
+    stream.writeUint16Be(numdups);
+    for (uint16_t i = 0; i < numgaps; ++i) {
+        stream.writeUint16Be(sackChunk->getGapStart(i) - cumtsnack);
+        stream.writeUint16Be(sackChunk->getGapStop(i) - cumtsnack);
+    }
+    for (uint16_t i = 0; i < numdups; ++i) {
+        stream.writeUint32Be(sackChunk->getDupTsns(i));
+    }
+}
+
+void deserializeSackChunk(MemoryInputStream& stream, const Ptr<SctpSackChunk> sackChunk) {
+    sackChunk->setIsNrSack(false);
+    sackChunk->setSctpChunkType(stream.readByte());
+    stream.readByte();
+    sackChunk->setByteLength(stream.readUint16Be());
+    uint32_t cumtsnack = stream.readUint32Be();
+    sackChunk->setCumTsnAck(cumtsnack);
+    sackChunk->setA_rwnd(stream.readUint32Be());
+    uint16_t numgaps = stream.readUint16Be();
+    sackChunk->setNumGaps(numgaps);
+    uint16_t numdups = stream.readUint16Be();
+    sackChunk->setNumDupTsns(numdups);
+    sackChunk->setGapStartArraySize(numgaps);
+    sackChunk->setGapStopArraySize(numgaps);
+    for (uint16_t i = 0; i < numgaps; ++i) {
+        sackChunk->setGapStart(i, stream.readUint16Be() + cumtsnack);
+        sackChunk->setGapStop(i, stream.readUint16Be() + cumtsnack);
+    }
+    sackChunk->setDupTsnsArraySize(numdups);
+    for (uint16_t i = 0; i < numdups; ++i) {
+        sackChunk->setDupTsns(i, stream.readUint32Be());
+    }
+}
+
+void serializeNrSackChunk(MemoryOutputStream& stream, const Ptr<SctpSackChunk> sackChunk) {
+    stream.writeByte(sackChunk->getSctpChunkType());
+    stream.writeByte(0);
+    stream.writeUint16Be(sackChunk->getByteLength());
+    uint32_t cumtsnack = sackChunk->getCumTsnAck();
+    stream.writeUint32Be(cumtsnack);
+    stream.writeUint32Be(sackChunk->getA_rwnd());
+    uint16_t numgaps = sackChunk->getNumGaps();
+    stream.writeUint16Be(numgaps);
+    uint16_t numnrgaps = sackChunk->getNumNrGaps();
+    stream.writeUint16Be(numnrgaps);
+    uint16_t numdups = sackChunk->getNumDupTsns();
+    stream.writeUint16Be(numdups);
+    stream.writeUint16Be(0);
+    for (uint16_t i = 0; i < numgaps; ++i) {
+        stream.writeUint16Be(sackChunk->getGapStart(i) - cumtsnack);
+        stream.writeUint16Be(sackChunk->getGapStop(i) - cumtsnack);
+    }
+    for (uint16_t i = 0; i < numnrgaps; ++i) {
+        stream.writeUint16Be(sackChunk->getNrGapStart(i) - cumtsnack);
+        stream.writeUint16Be(sackChunk->getNrGapStop(i) - cumtsnack);
+    }
+    for (uint16_t i = 0; i < numdups; ++i) {
+        stream.writeUint32Be(sackChunk->getDupTsns(i));
+    }
+}
+
+void deserializeNrSackChunk(MemoryInputStream& stream, const Ptr<SctpSackChunk> sackChunk) {
+    sackChunk->setIsNrSack(true);
+    sackChunk->setSctpChunkType(stream.readByte());
+    stream.readByte();
+    sackChunk->setByteLength(stream.readUint16Be());
+    uint32_t cumtsnack = stream.readUint32Be();
+    sackChunk->setCumTsnAck(cumtsnack);
+    sackChunk->setA_rwnd(stream.readUint32Be());
+    uint16_t numgaps = stream.readUint16Be();
+    sackChunk->setNumGaps(numgaps);
+    uint16_t numnrgaps = stream.readUint16Be();
+    sackChunk->setNumNrGaps(numnrgaps);
+    uint16_t numdups = stream.readUint16Be();
+    sackChunk->setNumDupTsns(numdups);
+    sackChunk->setGapStartArraySize(numgaps);
+    sackChunk->setGapStopArraySize(numgaps);
+    for (uint16_t i = 0; i < numgaps; ++i) {
+        sackChunk->setGapStart(i, stream.readUint16Be() + cumtsnack);
+        sackChunk->setGapStop(i, stream.readUint16Be() + cumtsnack);
+    }
+    sackChunk->setNrGapStartArraySize(numnrgaps);
+    sackChunk->setNrGapStopArraySize(numnrgaps);
+    for (uint16_t i = 0; i < numnrgaps; ++i) {
+        sackChunk->setNrGapStart(i, stream.readUint16Be() + cumtsnack);
+        sackChunk->setNrGapStop(i, stream.readUint16Be() + cumtsnack);
+    }
+    sackChunk->setDupTsnsArraySize(numdups);
+    for (uint16_t i = 0; i < numdups; ++i) {
+        sackChunk->setDupTsns(i, stream.readUint32Be());
+    }
+}
+
+void serializeHeartbeatChunk(MemoryOutputStream& stream, const Ptr<SctpHeartbeatChunk> heartbeatChunk) {
+    stream.writeByte(heartbeatChunk->getSctpChunkType());
+    stream.writeByte(0);
+    stream.writeUint16Be(heartbeatChunk->getByteLength());
+    L3Address addr = heartbeatChunk->getRemoteAddr();
+    //simtime_t time = heartbeatChunk->getTimeField();  ?? FIXME
+    if (addr.getType() == L3Address::IPv4) {
+        stream.writeUint16Be(1);
+        uint32_t infolen = sizeof(addr.toIpv4().getInt()) + sizeof(uint32_t);
+        stream.writeUint16Be(infolen + 4);
+        stream.writeUint16Be(INIT_PARAM_IPV4);
+        stream.writeUint16Be(8);
+        stream.writeIpv4Address(addr.toIpv4());
+    }
+    if (addr.getType() == L3Address::IPv6) {
+        stream.writeUint16Be(1);
+        uint32_t infolen = 20 + sizeof(uint32_t);
+        stream.writeUint16Be(infolen + 4);
+        stream.writeUint16Be(INIT_PARAM_IPV6);
+        stream.writeUint16Be(20);
+        stream.writeIpv6Address(addr.toIpv6());
+    }
+}
+
+void deserializeHeartbeatChunk(MemoryInputStream& stream, const Ptr<SctpHeartbeatChunk> heartbeatChunk) {
+    heartbeatChunk->setSctpChunkType(stream.readByte());
+    stream.readByte();
+    heartbeatChunk->setByteLength(stream.readUint16Be());
+    stream.readUint16Be();
+    uint16_t infolen = stream.readUint16Be();
+    uint16_t paramType = stream.readUint16Be();
+    switch (paramType) {
+        case INIT_PARAM_IPV4: {
+            heartbeatChunk->setRemoteAddr(stream.readIpv4Address());
+            break;
+        }
+        case INIT_PARAM_IPV6: {
+            heartbeatChunk->setRemoteAddr(stream.readIpv6Address());
+            break;
+        }
+        default:
+            stream.readByteRepeatedly(0, infolen - 4);
+    }
+}
+
+void serializeHeartbeatAckChunk(MemoryOutputStream& stream, const Ptr<SctpHeartbeatAckChunk> heartbeatAckChunk) {
+    stream.writeByte(heartbeatAckChunk->getSctpChunkType());
+    stream.writeByte(0);
+    stream.writeUint16Be(heartbeatAckChunk->getByteLength());
+    uint32_t infolen = heartbeatAckChunk->getInfoArraySize();
+    stream.writeUint16Be(1);
+    if (infolen > 0) {
+        stream.writeUint16Be(infolen + 4);
+        for (uint32_t i = 0; i < infolen; ++i) {
+            stream.writeByte(heartbeatAckChunk->getInfo(i));
+        }
+    }
+    else {
+        stream.writeUint16Be(0);  // FIXME: writing 0 as length to mandatory field above
+        L3Address addr = heartbeatAckChunk->getRemoteAddr();
+        //simtime_t time = heartbeatAckChunk->getTimeField();   // FIXME: ??
+        if (addr.getType() == L3Address::IPv4) {
+            stream.writeUint16Be(1);
+            uint32_t infolen = sizeof(addr.toIpv4().getInt()) + sizeof(uint32_t);
+            stream.writeUint16Be(infolen + 4);
+            stream.writeUint16Be(INIT_PARAM_IPV4);
+            stream.writeUint16Be(8);
+            stream.writeIpv4Address(addr.toIpv4());
+        }
+        if (addr.getType() == L3Address::IPv6) {
+            stream.writeUint16Be(1);
+            uint32_t infolen = 20 + sizeof(uint32_t);
+            stream.writeUint16Be(infolen + 4);
+            stream.writeUint16Be(INIT_PARAM_IPV6);
+            stream.writeUint16Be(20);
+            stream.writeIpv6Address(addr.toIpv6());
+        }
+    }
+}
+
+void deserializeHeartbeatAckChunk(MemoryInputStream& stream, const Ptr<SctpHeartbeatAckChunk> heartbeatAckChunk) {
+    heartbeatAckChunk->setSctpChunkType(stream.readByte());
+    stream.readByte();
+    heartbeatAckChunk->setByteLength(stream.readUint16Be());
+    stream.readUint16Be();
+    uint16_t infolen = stream.readUint16Be();
+    uint16_t paramType = stream.readUint16Be();
+    switch (paramType) {
+        case 1: {
+            heartbeatAckChunk->setInfoArraySize(infolen - 4);
+            for (uint16_t i = 0; i < infolen - 4; ++i) {
+                heartbeatAckChunk->setInfo(i, stream.readByte());
+            }
+            break;
+        }
+        case INIT_PARAM_IPV4: {
+            heartbeatAckChunk->setRemoteAddr(stream.readIpv4Address());
+            break;
+        }
+        case INIT_PARAM_IPV6: {
+            heartbeatAckChunk->setRemoteAddr(stream.readIpv6Address());
+            break;
+        }
+        default:
+            stream.readByteRepeatedly(0, infolen - 4);
+    }
+}
+
+void serializeAbortChunk(MemoryOutputStream& stream, const Ptr<SctpAbortChunk> abortChunk) {
+    stream.writeByte(abortChunk->getSctpChunkType());
+    stream.writeNBitsOfUint64Be(0, 7);
+    stream.writeBit(abortChunk->getT_Bit());
+    stream.writeUint16Be(abortChunk->getByteLength());
+}
+
+void deserializeAbortChunk(MemoryInputStream& stream, const Ptr<SctpAbortChunk> abortChunk) {
+    abortChunk->setSctpChunkType(stream.readByte());
+    stream.readNBitsToUint64Be(7);
+    abortChunk->setT_Bit(stream.readBit());
+    abortChunk->setByteLength(stream.readUint16Be());
+}
+
+void serializeShutdownChunk(MemoryOutputStream& stream, const Ptr<SctpShutdownChunk> shutdownChunk) {
+    stream.writeByte(shutdownChunk->getSctpChunkType());
+    stream.writeByte(0);
+    stream.writeUint16Be(shutdownChunk->getByteLength());   // must be 8
+    stream.writeUint32Be(shutdownChunk->getCumTsnAck());
+}
+
+void deserializeShutdownChunk(MemoryInputStream& stream, const Ptr<SctpShutdownChunk> shutdownChunk) {
+    shutdownChunk->setSctpChunkType(stream.readByte());
+    stream.readByte();
+    shutdownChunk->setByteLength(stream.readUint16Be());
+    shutdownChunk->setCumTsnAck(stream.readUint32Be());
+}
+
+void serializeShutdownAckChunk(MemoryOutputStream& stream, const Ptr<SctpShutdownAckChunk> shutdownAckChunk) {
+    stream.writeByte(shutdownAckChunk->getSctpChunkType());
+    stream.writeByte(0);
+    stream.writeUint16Be(shutdownAckChunk->getByteLength());   // must be 4
+}
+
+void deserializeShutdownAckChunk(MemoryInputStream& stream, const Ptr<SctpShutdownAckChunk> shutdownAckChunk) {
+    shutdownAckChunk->setSctpChunkType(stream.readByte());
+    stream.readByte();
+    shutdownAckChunk->setByteLength(stream.readUint16Be());
+}
+
+void serializeCookieEchoChunk(MemoryOutputStream& stream, const Ptr<SctpCookieEchoChunk> cookieChunk) {
+    stream.writeByte(cookieChunk->getSctpChunkType());
+    stream.writeByte(0);
+    stream.writeUint16Be(cookieChunk->getByteLength());
+    uint32_t cookielen = cookieChunk->getCookieArraySize();
+    if (cookielen > 0) {
+        for (uint32_t i = 0; i < cookielen; ++i)
+            stream.writeByte(cookieChunk->getCookie(i));
+    }
+    else {
+        SctpCookie *stateCookie = (SctpCookie *)(cookieChunk->getStateCookie());
+        stream.writeUint32Be(stateCookie->getCreationTime().inUnit(SIMTIME_MS));    // FIXME: ms?
+        stream.writeUint32Be(stateCookie->getLocalTag());
+        stream.writeUint32Be(stateCookie->getPeerTag());
+        for (uint32_t i = 0; i < 32; ++i) {
+            stream.writeByte(stateCookie->getLocalTieTag(i));
+        }
+        for (uint32_t i = 0; i < 32; ++i) {
+            stream.writeByte(stateCookie->getPeerTieTag(i));
+        }
+    }
+    uint32 uLen = cookieChunk->getUnrecognizedParametersArraySize();
+    if (uLen > 0) {
+        // FIXME
+        stream.writeByte(ERRORTYPE);
+        stream.writeByte(0);
+        stream.writeByte(uLen + 8);
+        stream.writeByte(UNRECOGNIZED_PARAMETER);
+        stream.writeByte(0);
+        stream.writeByte(uLen + 4);
+        for (uint32_t i = 0; i < uLen; ++i) {
+            stream.writeByte(cookieChunk->getUnrecognizedParameters(i));
+        }
+    }
+}
+
+void deserializeCookieEchoChunk(MemoryInputStream& stream, const Ptr<SctpCookieEchoChunk> cookieChunk) {
+    // TODO FIXME
+}
+
+void serializeCookieAckChunk(MemoryOutputStream& stream, const Ptr<SctpCookieAckChunk> cookieAckChunk) {
+    stream.writeByte(cookieAckChunk->getSctpChunkType());
+    stream.writeByte(0);
+    stream.writeUint16Be(cookieAckChunk->getByteLength());  // must be 4
+}
+
+void deserializeCookieAckChunk(MemoryInputStream& stream, const Ptr<SctpCookieAckChunk> cookieAckChunk) {
+    cookieAckChunk->setSctpChunkType(stream.readByte());
+    stream.readByte();
+    cookieAckChunk->setByteLength(stream.readUint16Be());  // must be 4
+}
+
+void serializeShutdownCompleteChunk(MemoryOutputStream& stream, const Ptr<SctpShutdownCompleteChunk> shutdownCompleteChunk) {
+    stream.writeByte(shutdownCompleteChunk->getSctpChunkType());
+    stream.writeNBitsOfUint64Be(0, 7);
+    stream.writeBit(shutdownCompleteChunk->getTBit());
+    stream.writeUint16Be(shutdownCompleteChunk->getByteLength());  // must be 4
+}
+
+void deserializeShutdownCompleteChunk(MemoryInputStream& stream, const Ptr<SctpShutdownCompleteChunk> shutdownCompleteChunk) {
+    shutdownCompleteChunk->setSctpChunkType(stream.readByte());
+    stream.readNBitsToUint64Be(7);
+    shutdownCompleteChunk->setTBit(stream.readBit());
+    shutdownCompleteChunk->setByteLength(stream.readUint16Be());  // must be 4
+}
+
+void serializeAuthenticationChunk(MemoryOutputStream& stream, const Ptr<SctpAuthenticationChunk> authChunk) {
+    stream.writeByte(authChunk->getSctpChunkType());
+    stream.writeByte(0);
+    stream.writeUint16Be(SCTP_AUTH_CHUNK_LENGTH + SHA_LENGTH);
+    stream.writeUint16Be(authChunk->getSharedKey());
+    stream.writeUint16Be(authChunk->getHMacIdentifier());
+    for (uint8_t i = 0; i < SHA_LENGTH; ++i) {
+        stream.writeByte(0);
+    }
+}
+
+void deserializeAuthenticationChunk(MemoryInputStream& stream, const Ptr<SctpAuthenticationChunk> authChunk) {
+    authChunk->setSctpChunkType(stream.readByte());
+    stream.readByte();
+    uint16_t len = stream.readUint16Be();
+    authChunk->setByteLength(len);
+    authChunk->setSharedKey(stream.readUint16Be());
+    authChunk->setHMacIdentifier(stream.readUint16Be());
+    for (uint8_t i = 0; i < len - SCTP_AUTH_CHUNK_LENGTH; ++i) {
+        stream.readByte();
+    }
+}
+
+void serializeForwardTsnChunk(MemoryOutputStream& stream, const Ptr<SctpForwardTsnChunk> forward) {
+    stream.writeByte(forward->getSctpChunkType());
+    stream.writeByte(0);
+    stream.writeUint16Be(forward->getByteLength());
+    stream.writeUint32Be(forward->getNewCumTsn());
+    ASSERT(forward->getSidArraySize() == forward->getSsnArraySize());
+    for (uint32_t i = 0; i < forward->getSidArraySize(); ++i) {
+        stream.writeUint16Be(forward->getSid(i));
+        stream.writeUint16Be(forward->getSsn(i));
+    }
+}
+
+void deserializeForwardTsnChunk(MemoryInputStream& stream, const Ptr<SctpForwardTsnChunk> forward) {
+    forward->setSctpChunkType(stream.readByte());
+    stream.readByte();
+    forward->setByteLength(stream.readUint16Be());
+    forward->setNewCumTsn(stream.readUint32Be());
+    uint32_t num = (forward->getByteLength() - 8) / 4;
+    forward->setSidArraySize(num);
+    forward->setSsnArraySize(num);
+    for (uint32_t i = 0; i < num; ++i) {
+        forward->setSid(i, stream.readUint16Be());
+        forward->setSsn(i, stream.readUint16Be());
+    }
+}
+
+void serializeAsconfChangeChangeChunk(MemoryOutputStream& stream, const Ptr<SctpAsconfChunk> asconfChunk) {
+    stream.writeByte(asconfChunk->getSctpChunkType());
+    stream.writeByte(0);
+    stream.writeUint16Be(asconfChunk->getByteLength());
+    stream.writeUint32Be(asconfChunk->getSerialNumber());
+
+    stream.writeByte(INIT_PARAM_IPV4);
+    stream.writeByte(0);
+    stream.writeUint16Be(8);
+    stream.writeIpv4Address(asconfChunk->getAddressParam().toIpv4());
+
+    for (uint32_t i = 0; i < asconfChunk->getAsconfParamsArraySize(); ++i) {
+        SctpParameter *parameter = (SctpParameter *)(asconfChunk->getAsconfParams(i));
+        switch (parameter->getParameterType()) {
+            case ADD_IP_ADDRESS: {
+                SctpAddIPParameter *addip = check_and_cast<SctpAddIPParameter *>(parameter);
+                stream.writeByte(ADD_IP_ADDRESS);
+                stream.writeByte(addip->getByteLength());
+                stream.writeUint32Be(addip->getRequestCorrelationId());
+                stream.writeByte(INIT_PARAM_IPV4);
+                stream.writeByte(8);
+                stream.writeIpv4Address(addip->getAddressParam().toIpv4());
+                break;
+            }
+            case DELETE_IP_ADDRESS: {
+                SctpDeleteIPParameter *deleteip = check_and_cast<SctpDeleteIPParameter *>(parameter);
+                stream.writeByte(DELETE_IP_ADDRESS);
+                stream.writeByte(deleteip->getByteLength());
+                stream.writeUint32Be(deleteip->getRequestCorrelationId());
+                stream.writeByte(INIT_PARAM_IPV4);
+                stream.writeByte(8);
+                stream.writeIpv4Address(deleteip->getAddressParam().toIpv4());
+                break;
+            }
+            case SET_PRIMARY_ADDRESS: {
+                SctpSetPrimaryIPParameter *setip = check_and_cast<SctpSetPrimaryIPParameter *>(parameter);
+                stream.writeByte(SET_PRIMARY_ADDRESS);
+                stream.writeByte(setip->getByteLength());
+                stream.writeUint32Be(setip->getRequestCorrelationId());
+                stream.writeByte(INIT_PARAM_IPV4);
+                stream.writeByte(8);
+                stream.writeIpv4Address(setip->getAddressParam().toIpv4());
+                break;
+            }
+            default:
+                throw cRuntimeError("Parameter Type %d not supported", parameter->getParameterType());
+        }
+    }
+}
+
+void deserializeAsconfChangeChunk(MemoryInputStream& stream, const Ptr<SctpAsconfChunk> asconfChunk) {
+    asconfChunk->setSctpChunkType(stream.readByte());
+    stream.readByte();
+    asconfChunk->setByteLength(stream.readUint16Be());
+    asconfChunk->setSerialNumber(stream.readUint32Be());
+
+    stream.readByte();
+    stream.readByte();
+    stream.readUint16Be();
+    asconfChunk->setAddressParam(stream.readIpv4Address());
+
+    uint8_t arrsize = (asconfChunk->getByteLength() - 16) / 12;
+    asconfChunk->setAsconfParamsArraySize(arrsize);
+    for (uint32_t i = 0; i < arrsize; ++i) {
+        uint8_t type = stream.readByte();
+        switch (type) {
+            case ADD_IP_ADDRESS: {
+                SctpAddIPParameter *addip = new SctpAddIPParameter();
+                stream.readByte();
+                stream.readByte();
+                addip->setRequestCorrelationId(stream.readUint32Be());
+                stream.readByte();
+                stream.readByte();
+                addip->setAddressParam(stream.readIpv4Address());
+                asconfChunk->setAsconfParams(i, addip);
+                break;
+            }
+            case DELETE_IP_ADDRESS: {
+                SctpDeleteIPParameter *deleteip = new SctpDeleteIPParameter();
+                stream.readByte();
+                stream.readByte();
+                deleteip->setRequestCorrelationId(stream.readUint32Be());
+                stream.readByte();
+                stream.readByte();
+                deleteip->setAddressParam(stream.readIpv4Address());
+                asconfChunk->setAsconfParams(i, deleteip);
+                break;
+            }
+            case SET_PRIMARY_ADDRESS: {
+                SctpSetPrimaryIPParameter *setip = new SctpSetPrimaryIPParameter();
+                stream.readByte();
+                stream.readByte();
+                setip->setRequestCorrelationId(stream.readUint32Be());
+                stream.readByte();
+                stream.readByte();
+                setip->setAddressParam(stream.readIpv4Address());
+                asconfChunk->setAsconfParams(i, setip);
+                break;
+            }
+            default:
+                throw cRuntimeError("Parameter Type %d not supported", type);
+        }
+    }
+}
+
+void serializeAsconfAckChunk(MemoryOutputStream& stream, const Ptr<SctpAsconfAckChunk> asconfAckChunk) {
+    stream.writeByte(asconfAckChunk->getSctpChunkType());
+    stream.writeByte(0);
+    stream.writeUint16Be(asconfAckChunk->getByteLength());
+    stream.writeUint32Be(asconfAckChunk->getSerialNumber());
+
+    for (uint32_t i = 0; i < asconfAckChunk->getAsconfResponseArraySize(); ++i) {
+        SctpParameter *parameter = check_and_cast<SctpParameter *>(asconfAckChunk->getAsconfResponse(i));
+        switch (parameter->getParameterType()) {
+            case ERROR_CAUSE_INDICATION: {
+                SctpErrorCauseParameter *error = check_and_cast<SctpErrorCauseParameter *>(parameter);
+                stream.writeByte(error->getParameterType());
+                stream.writeByte(error->getByteLength());
+                stream.writeUint32Be(error->getResponseCorrelationId());
+
+                if (check_and_cast<SctpParameter *>(error->getEncapsulatedPacket()) != nullptr) {
+                    SctpParameter *encParameter = check_and_cast<SctpParameter *>(error->getEncapsulatedPacket());
+                    switch (encParameter->getParameterType()) {
+                        case ADD_IP_ADDRESS: {
+                            SctpAddIPParameter *addip = check_and_cast<SctpAddIPParameter *>(encParameter);
+                            stream.writeByte(ADD_IP_ADDRESS);
+                            stream.writeByte(addip->getByteLength());
+                            stream.writeUint32Be(addip->getRequestCorrelationId());
+                            stream.writeByte(INIT_PARAM_IPV4);
+                            stream.writeByte(8);
+                            stream.writeIpv4Address(addip->getAddressParam().toIpv4());
+                            break;
+                        }
+                        case DELETE_IP_ADDRESS: {
+                            SctpDeleteIPParameter *deleteip = check_and_cast<SctpDeleteIPParameter *>(encParameter);
+                            stream.writeByte(DELETE_IP_ADDRESS);
+                            stream.writeByte(deleteip->getByteLength());
+                            stream.writeUint32Be(deleteip->getRequestCorrelationId());
+                            stream.writeByte(INIT_PARAM_IPV4);
+                            stream.writeByte(8);
+                            stream.writeIpv4Address(deleteip->getAddressParam().toIpv4());
+                            break;
+                        }
+                        case SET_PRIMARY_ADDRESS: {
+                            SctpSetPrimaryIPParameter *setip = check_and_cast<SctpSetPrimaryIPParameter *>(encParameter);
+                            stream.writeByte(SET_PRIMARY_ADDRESS);
+                            stream.writeByte(setip->getByteLength());
+                            stream.writeUint32Be(setip->getRequestCorrelationId());
+                            stream.writeByte(INIT_PARAM_IPV4);
+                            stream.writeByte(8);
+                            stream.writeIpv4Address(setip->getAddressParam().toIpv4());
+                            break;
+                        }
+                        throw cRuntimeError("Parameter Type %d not supported", encParameter->getParameterType());
+                    }
+                }
+                break;
+            }
+            case SUCCESS_INDICATION: {
+                SctpSuccessIndication *success = check_and_cast<SctpSuccessIndication *>(parameter);
+                stream.writeByte(success->getParameterType());
+                stream.writeByte(8);
+                stream.writeUint32Be(success->getResponseCorrelationId());
+                break;
+            }
+            default:
+                throw cRuntimeError("Parameter Type %d not supported", parameter->getParameterType());
+        }
+    }
+}
+
+void deserializeAsconfAckChunk(MemoryInputStream& stream, const Ptr<SctpAsconfAckChunk> asconfAckChunk) {
+    asconfAckChunk->setSctpChunkType(stream.readByte());
+    stream.readByte();
+    asconfAckChunk->setByteLength(stream.readUint16Be());
+    asconfAckChunk->setSerialNumber(stream.readUint32Be());
+
+    uint32_t bytes_to_read = asconfAckChunk->getByteLength() - 8;
+    while (bytes_to_read > 0) {
+        uint8_t type = stream.readByte();
+        switch (type) {
+            case ERROR_CAUSE_INDICATION: {
+                SctpErrorCauseParameter *error = new SctpErrorCauseParameter("ERROR_CAUSE");
+                error->setParameterType(stream.readByte());
+                error->setByteLength(stream.readByte());
+                error->setResponseCorrelationId(stream.readUint32Be());
+                uint8_t paramType = stream.readByte();
+                //chunk->encapsulate(smsg);
+                switch (paramType) {
+                    case ADD_IP_ADDRESS: {
+                        SctpAddIPParameter *addip = new SctpAddIPParameter();
+                        stream.readByte();
+                        addip->setByteLength(stream.readByte());
+                        addip->setRequestCorrelationId(stream.readUint32Be());
+                        stream.readByte();
+                        stream.readByte();
+                        addip->setAddressParam(stream.readIpv4Address());
+                        error->encapsulate(addip);
+                        break;
+                    }
+                    case DELETE_IP_ADDRESS: {
+                        SctpDeleteIPParameter *deleteip = new SctpDeleteIPParameter();
+                        stream.readByte();
+                        deleteip->setByteLength(stream.readByte());
+                        deleteip->setRequestCorrelationId(stream.readUint32Be());
+                        stream.readByte();
+                        stream.readByte();
+                        deleteip->setAddressParam(stream.readIpv4Address());
+                        error->encapsulate(deleteip);
+                        break;
+                    }
+                    case SET_PRIMARY_ADDRESS: {
+                        SctpSetPrimaryIPParameter *setip = new SctpSetPrimaryIPParameter();
+                        stream.readByte();
+                        setip->setByteLength(stream.readByte());
+                        setip->setRequestCorrelationId(stream.readUint32Be());
+                        stream.readByte();
+                        stream.readByte();
+                        setip->setAddressParam(stream.readIpv4Address());
+                        error->encapsulate(setip);
+                        break;
+                    }
+                }
+                asconfAckChunk->addAsconfResponse(error);
+                break;
+            }
+            case SUCCESS_INDICATION: {
+                SctpSuccessIndication *success = new SctpSuccessIndication();
+                success->setParameterType(stream.readByte());
+                stream.readByte();
+                success->setResponseCorrelationId(stream.readUint32Be());
+                break;
+            }
+            default: {
+                stream.readByteRepeatedly(0, bytes_to_read);
+                break;
+            }
+        }
+    }
+}
+
+void serializeErrorChunk(MemoryOutputStream& stream, const Ptr<SctpErrorChunk> errorchunk) {
+    stream.writeByte(errorchunk->getSctpChunkType());
+    stream.writeNBitsOfUint64Be(0, 6);
+    stream.writeBit(errorchunk->getMBit());
+    stream.writeBit(errorchunk->getTBit());
+    stream.writeUint16Be(errorchunk->getByteLength());
+    if (errorchunk->getParametersArraySize() > 0) {
+        SctpParameter *parameter = check_and_cast<SctpParameter *>(errorchunk->getParameters(0));
+        switch (parameter->getParameterType()) {
+            case MISSING_NAT_ENTRY: {
+                SctpSimpleErrorCauseParameter *ecp = check_and_cast<SctpSimpleErrorCauseParameter *>(parameter);
+                stream.writeUint16Be(ecp->getParameterType());
+                stream.writeUint16Be(ecp->getByteLength());
+                stream.writeByteRepeatedly(ecp->getValue(), ecp->getByteLength() - 4);
+                break;
+            }
+            case INVALID_STREAM_IDENTIFIER: {
+                SctpSimpleErrorCauseParameter *ecp = check_and_cast<SctpSimpleErrorCauseParameter *>(parameter);
+                stream.writeUint16Be(ecp->getParameterType());
+                stream.writeUint16Be(ecp->getByteLength());
+                stream.writeUint16Be(ecp->getValue());
+                stream.writeUint16Be(0);
+                break;
+            }
+            default:
+                throw cRuntimeError("Parameter Type %d not supported", parameter->getParameterType());
+        }
+    }
+}
+
+void deserializeErrorChunk(MemoryInputStream& stream, const Ptr<SctpErrorChunk> errorchunk) {
+    errorchunk->setSctpChunkType(stream.readByte());
+    stream.readNBitsToUint64Be(6);
+    errorchunk->setMBit(stream.readBit());
+    errorchunk->setTBit(stream.readBit());
+    errorchunk->setByteLength(stream.readUint16Be());
+    if (errorchunk->getByteLength() > 4) {
+        errorchunk->setParametersArraySize(1);
+        uint8_t type = stream.readByte();
+        switch (type) {
+            case MISSING_NAT_ENTRY: {
+                SctpSimpleErrorCauseParameter *ecp = new SctpSimpleErrorCauseParameter();
+                ecp->setParameterType(MISSING_NAT_ENTRY);
+                ecp->setByteLength(stream.readUint16Be());
+                ecp->setValue(stream.readByteRepeatedly(0, ecp->getByteLength() - 4));
+                break;
+            }
+            case INVALID_STREAM_IDENTIFIER: {
+                SctpSimpleErrorCauseParameter *ecp = new SctpSimpleErrorCauseParameter();
+                ecp->setParameterType(INVALID_STREAM_IDENTIFIER);
+                ecp->setByteLength(stream.readUint16Be());
+                ecp->setValue(stream.readUint16Be());
+                stream.readUint16Be();
+                break;
+            }
+            default:
+                break;
+        }
+    }
+}
+
+void serializeReConfigurationChunk(MemoryOutputStream& stream, const Ptr<SctpStreamResetChunk> streamReset) {
+    stream.writeByte(streamReset->getSctpChunkType());
+    stream.writeByte(0);
+    stream.writeUint16Be(streamReset->getByteLength());
+    uint16_t numParameters = streamReset->getParametersArraySize();
+    for (uint16_t i = 0; i < numParameters; ++i) {
+        SctpParameter *parameter = (SctpParameter *)(streamReset->getParameters(i));
+        switch (parameter->getParameterType()) {
+            case OUTGOING_RESET_REQUEST_PARAMETER: {
+                SctpOutgoingSsnResetRequestParameter *outparam = check_and_cast<SctpOutgoingSsnResetRequestParameter *>(parameter);
+                stream.writeUint16Be(outparam->getParameterType());
+                stream.writeUint16Be(16 + 2 * outparam->getStreamNumbersArraySize());
+                stream.writeUint32Be(outparam->getSrReqSn());
+                stream.writeUint32Be(outparam->getSrResSn());
+                stream.writeUint32Be(outparam->getLastTsn());
+                for (uint32_t i = 0; i < outparam->getStreamNumbersArraySize(); ++i) {
+                    stream.writeUint16Be(outparam->getStreamNumbers(i));
+                }
+                break;
+            }
+            case INCOMING_RESET_REQUEST_PARAMETER: {
+                SctpIncomingSsnResetRequestParameter *inparam = check_and_cast<SctpIncomingSsnResetRequestParameter *>(parameter);
+                stream.writeUint16Be(inparam->getParameterType());
+                stream.writeUint16Be(8 + 2 * inparam->getStreamNumbersArraySize());
+                stream.writeUint32Be(inparam->getSrReqSn());
+                for (uint32_t i = 0; i < inparam->getStreamNumbersArraySize(); ++i) {
+                    stream.writeUint16Be(inparam->getStreamNumbers(i));
+                }
+                break;
+            }
+            case SSN_TSN_RESET_REQUEST_PARAMETER: {
+                SctpSsnTsnResetRequestParameter *ssnparam = check_and_cast<SctpSsnTsnResetRequestParameter *>(parameter);
+                stream.writeUint16Be(ssnparam->getParameterType());
+                stream.writeUint16Be(8);
+                stream.writeUint32Be(ssnparam->getSrReqSn());
+                break;
+            }
+            case STREAM_RESET_RESPONSE_PARAMETER: {
+                SctpStreamResetResponseParameter *response = check_and_cast<SctpStreamResetResponseParameter *>(parameter);
+                stream.writeUint16Be(response->getParameterType());
+                if (response->getSendersNextTsn() != 0)
+                    stream.writeUint16Be(20);
+                else
+                    stream.writeUint16Be(12);
+                stream.writeUint32Be(response->getSrResSn());
+                stream.writeUint32Be(response->getResult());
+                if (response->getSendersNextTsn() != 0) {
+                    stream.writeUint32Be(response->getSendersNextTsn());
+                    stream.writeUint32Be(response->getReceiversNextTsn());
+                }
+                break;
+            }
+            case ADD_OUTGOING_STREAMS_REQUEST_PARAMETER: {
+                SctpAddStreamsRequestParameter *outstreams = check_and_cast<SctpAddStreamsRequestParameter *>(parameter);
+                stream.writeUint16Be(outstreams->getParameterType());
+                stream.writeUint16Be(12);
+                stream.writeUint32Be(outstreams->getSrReqSn());
+                stream.writeUint16Be(outstreams->getNumberOfStreams());
+                stream.writeUint16Be(0);
+                break;
+            }
+            case ADD_INCOMING_STREAMS_REQUEST_PARAMETER: {
+                SctpAddStreamsRequestParameter *instreams = check_and_cast<SctpAddStreamsRequestParameter *>(parameter);
+                stream.writeUint16Be(instreams->getParameterType());
+                stream.writeUint16Be(12);
+                stream.writeUint32Be(instreams->getSrReqSn());
+                stream.writeUint16Be(instreams->getNumberOfStreams());
+                stream.writeUint16Be(0);
+                break;
+            }
+            default:
+                throw cRuntimeError("Parameter Type %d not supported", parameter->getParameterType());
+        }
+    }
+}
+
+}
 
 unsigned char SctpHeaderSerializer::keyVector[512];
 unsigned int SctpHeaderSerializer::sizeKeyVector = 0;
@@ -52,1066 +1192,15 @@ unsigned char SctpHeaderSerializer::sharedKey[512];
 
 void SctpHeaderSerializer::serialize(MemoryOutputStream& stream, const Ptr<const Chunk>& chunk) const
 {
-    uint8_t buffer[MAXBUFLEN];
-    // int32 size_chunk = sizeof(struct chunk);
-
-    int authstart = 0;
     const auto& msg = staticPtrCast<const SctpHeader>(chunk);
-    struct common_header *ch = (struct common_header *)(buffer);
-    uint32 writtenbytes = sizeof(struct common_header);
-
-    // fill SCTP common header structure
-    ch->source_port = htons(msg->getSrcPort());
-    ch->destination_port = htons(msg->getDestPort());
-    ch->verification_tag = htonl(msg->getVTag());
-    ch->checksum = htonl(0);
-
-    // SCTP chunks:
-    int32 noChunks = msg->getSctpChunksArraySize();
-    for (int32 cc = 0; cc < noChunks; cc++) {
-        SctpChunk *chunk = const_cast<SctpChunk *>(check_and_cast<const SctpChunk *>((msg)->getSctpChunks(cc)));
-        unsigned char chunkType = chunk->getSctpChunkType();
-        switch (chunkType) {
-            case DATA: {
-                EV_INFO << simTime() << " SctpAssociation:: Data sent \n";
-                SctpDataChunk *dataChunk = check_and_cast<SctpDataChunk *>(chunk);
-                struct data_chunk *dc = (struct data_chunk *)(buffer + writtenbytes);    // append data to buffer
-                unsigned char flags = 0;
-
-                // fill buffer with data from SCTP data chunk structure
-                dc->type = dataChunk->getSctpChunkType();
-                if (dataChunk->getUBit())
-                    flags |= UNORDERED_BIT;
-                if (dataChunk->getBBit())
-                    flags |= BEGIN_BIT;
-                if (dataChunk->getEBit())
-                    flags |= END_BIT;
-                if (dataChunk->getIBit())
-                    flags |= I_BIT;
-                dc->flags = flags;
-                dc->length = htons(dataChunk->getByteLength());
-                dc->tsn = htonl(dataChunk->getTsn());
-                dc->sid = htons(dataChunk->getSid());
-                dc->ssn = htons(dataChunk->getSsn());
-                dc->ppi = htonl(dataChunk->getPpid());
-                writtenbytes += SCTP_DATA_CHUNK_LENGTH;
-                SctpSimpleMessage *smsg = check_and_cast<SctpSimpleMessage *>(dataChunk->getEncapsulatedPacket());
-                const uint32 datalen = smsg->getDataLen();
-                if (smsg->getDataArraySize() >= datalen) {
-                    for (uint32 i = 0; i < datalen; i++) {
-                        dc->user_data[i] = smsg->getData(i);
-                    }
-                }
-                writtenbytes += ADD_PADDING(datalen);
-                break;
-            }
-
-            case INIT: {
-                EV_INFO << "serialize INIT size=" << (unsigned long)B(msg->getChunkLength()).get() <<  "\n";
-
-                // source data from internal struct:
-                SctpInitChunk *initChunk = check_and_cast<SctpInitChunk *>(chunk);
-                // destination is send buffer:
-                struct init_chunk *ic = (struct init_chunk *)(buffer + writtenbytes);    // append data to buffer
-                uint16_t padding_last = 0;
-
-                // fill buffer with data from Sctp init chunk structure
-                ic->type = initChunk->getSctpChunkType();
-                ic->flags = 0;    // no flags available in this type of SctpChunk
-                ic->initiate_tag = htonl(initChunk->getInitTag());
-                ic->a_rwnd = htonl(initChunk->getA_rwnd());
-                ic->mos = htons(initChunk->getNoOutStreams());
-                ic->mis = htons(initChunk->getNoInStreams());
-                ic->initial_tsn = htonl(initChunk->getInitTsn());
-                int32 parPtr = 0;
-                // Var.-Len. Parameters
-                if (initChunk->getIpv4Supported() || initChunk->getIpv6Supported()) {
-                    struct supported_address_types_parameter *sup_addr = (struct supported_address_types_parameter *)(((unsigned char *)ic) + sizeof(struct init_chunk) + parPtr);
-                    sup_addr->type = htons(INIT_SUPPORTED_ADDRESS);
-                    sup_addr->length = htons(8);
-                    if (initChunk->getIpv4Supported() && initChunk->getIpv6Supported()) {
-                        sup_addr->address_type_1 = htons(INIT_PARAM_IPV4);
-                        sup_addr->address_type_2 = htons(INIT_PARAM_IPV6);
-                    } else if (initChunk->getIpv4Supported()) {
-                        sup_addr->address_type_1 = htons(INIT_PARAM_IPV4);
-                        sup_addr->address_type_2 = 0;
-                    } else {
-                        sup_addr->address_type_1 = htons(INIT_PARAM_IPV6);
-                        sup_addr->address_type_2 = 0;
-                    }
-                    parPtr += 8;
-                }
-                if (initChunk->getForwardTsn() == true) {
-                    struct forward_tsn_supported_parameter *forward = (struct forward_tsn_supported_parameter *)(((unsigned char *)ic) + sizeof(struct init_chunk) + parPtr);
-                    forward->type = htons(FORWARD_TSN_SUPPORTED_PARAMETER);
-                    forward->length = htons(4);
-                    parPtr += 4;
-                }
-                int32 numaddr = initChunk->getAddressesArraySize();
-                for (int32 i = 0; i < numaddr; i++) {
-#ifdef WITH_IPv4
-                    if (initChunk->getAddresses(i).getType() == L3Address::IPv4) {
-                        struct init_ipv4_address_parameter *ipv4addr = (struct init_ipv4_address_parameter *)(((unsigned char *)ic) + sizeof(struct init_chunk) + parPtr);
-                        ipv4addr->type = htons(INIT_PARAM_IPV4);
-                        ipv4addr->length = htons(8);
-                        ipv4addr->address = htonl(initChunk->getAddresses(i).toIpv4().getInt());
-                        parPtr += sizeof(struct init_ipv4_address_parameter);
-                    }
-#endif // ifdef WITH_IPv4
-#ifdef WITH_IPv6
-                    if (initChunk->getAddresses(i).getType() == L3Address::IPv6) {
-                        struct init_ipv6_address_parameter *ipv6addr = (struct init_ipv6_address_parameter *)(((unsigned char *)ic) + sizeof(struct init_chunk) + parPtr);
-                        ipv6addr->type = htons(INIT_PARAM_IPV6);
-                        ipv6addr->length = htons(20);
-                        for (int32 j = 0; j < 4; j++) {
-                            ipv6addr->address[j] = htonl(initChunk->getAddresses(i).toIpv6().words()[j]);
-                        }
-                        parPtr += sizeof(struct init_ipv6_address_parameter);
-                    }
-#endif // ifdef WITH_IPv6
-                }
-                int chunkcount = initChunk->getSepChunksArraySize();
-                if (chunkcount > 0) {
-                    struct supported_extensions_parameter *supext = (struct supported_extensions_parameter *)(((unsigned char *)ic) + sizeof(struct init_chunk) + parPtr);
-                    supext->type = htons(SUPPORTED_EXTENSIONS);
-                    int chunkcount = initChunk->getSepChunksArraySize();
-                    supext->length = htons(sizeof(struct supported_extensions_parameter) + chunkcount);
-                    for (int i = 0; i < chunkcount; i++) {
-                        supext->chunk_type[i] = initChunk->getSepChunks(i);
-                    }
-                    parPtr += sizeof(struct supported_extensions_parameter) + chunkcount;
-                    padding_last = ADD_PADDING(sizeof(struct supported_extensions_parameter) + chunkcount) - (sizeof(struct supported_extensions_parameter) + chunkcount);
-                }
-                if (initChunk->getHmacTypesArraySize() > 0) {
-                    if (padding_last > 0) {
-                        parPtr += padding_last;
-                        padding_last = 0;
-                    }
-                    struct random_parameter *random = (struct random_parameter *)(((unsigned char *)ic) + sizeof(struct init_chunk) + parPtr);
-                    random->type = htons(RANDOM);
-                    unsigned char *vector = (unsigned char *)malloc(64);
-                    struct random_parameter *rp = (struct random_parameter *)((unsigned char *)vector);
-                    rp->type = htons(RANDOM);
-                    int randomsize = initChunk->getRandomArraySize();
-                    for (int i = 0; i < randomsize; i++) {
-                        random->random[i] = (initChunk->getRandom(i));
-                        rp->random[i] = (initChunk->getRandom(i));
-                    }
-                    parPtr += ADD_PADDING(sizeof(struct random_parameter) + randomsize);
-                    random->length = htons(sizeof(struct random_parameter) + randomsize);
-                    rp->length = htons(sizeof(struct random_parameter) + randomsize);
-                    sizeKeyVector = sizeof(struct random_parameter) + randomsize;
-                    struct tlv *chunks = (struct tlv *)(((unsigned char *)ic) + sizeof(struct init_chunk) + parPtr);
-                    struct tlv *cp = (struct tlv *)(((unsigned char *)vector) + sizeKeyVector);
-
-                    chunks->type = htons(CHUNKS);
-                    cp->type = htons(CHUNKS);
-                    int chunksize = initChunk->getSctpChunkTypesArraySize();
-                    EV_DETAIL << "chunksize=" << chunksize << "\n";
-                    for (int i = 0; i < chunksize; i++) {
-                        chunks->value[i] = (initChunk->getSctpChunkTypes(i));
-                        EV_DETAIL << "chunkType=" << initChunk->getSctpChunkTypes(i) << "\n";
-                        cp->value[i] = (initChunk->getSctpChunkTypes(i));
-                    }
-                    chunks->length = htons(sizeof(struct tlv) + chunksize);
-                    cp->length = htons(sizeof(struct tlv) + chunksize);
-                    sizeKeyVector += sizeof(struct tlv) + chunksize;
-                    parPtr += ADD_PADDING(sizeof(struct tlv) + chunksize);
-                    struct hmac_algo *hmac = (struct hmac_algo *)(((unsigned char *)ic) + sizeof(struct init_chunk) + parPtr);
-                    struct hmac_algo *hp = (struct hmac_algo *)(((unsigned char *)vector) + sizeKeyVector);
-                    hmac->type = htons(HMAC_ALGO);
-                    hp->type = htons(HMAC_ALGO);
-                    hmac->length = htons(4 + 2 * initChunk->getHmacTypesArraySize());
-                    hp->length = htons(4 + 2 * initChunk->getHmacTypesArraySize());
-                    sizeKeyVector += (4 + 2 * initChunk->getHmacTypesArraySize());
-                    for (unsigned int i = 0; i < initChunk->getHmacTypesArraySize(); i++) {
-                        hmac->ident[i] = htons(initChunk->getHmacTypes(i));
-                        hp->ident[i] = htons(initChunk->getHmacTypes(i));
-                    }
-                    parPtr += ADD_PADDING(4 + 2 * initChunk->getHmacTypesArraySize());
-                    padding_last = ADD_PADDING(4 + 2 * initChunk->getHmacTypesArraySize()) - (4 + 2 * initChunk->getHmacTypesArraySize());
-                    parPtr -= padding_last;
-
-                    for (unsigned int k = 0; k < sizeKeyVector; k++) {
-                        keyVector[k] = vector[k];
-                    }
-                    free(vector);
-                }
-
-                ic->length = htons(SCTP_INIT_CHUNK_LENGTH + parPtr);
-                writtenbytes += SCTP_INIT_CHUNK_LENGTH + parPtr + padding_last;
-                break;
-            }
-
-            case INIT_ACK: {
-                SctpInitAckChunk *initAckChunk = check_and_cast<SctpInitAckChunk *>(chunk);
-                // destination is send buffer:
-                struct init_ack_chunk *iac = (struct init_ack_chunk *)(buffer + writtenbytes);    // append data to buffer
-                // fill buffer with data from Sctp init ack chunk structure
-                iac->type = initAckChunk->getSctpChunkType();
-                iac->flags = 0;    // no flags available in this type of SctpChunk
-                iac->initiate_tag = htonl(initAckChunk->getInitTag());
-                iac->a_rwnd = htonl(initAckChunk->getA_rwnd());
-                iac->mos = htons(initAckChunk->getNoOutStreams());
-                iac->mis = htons(initAckChunk->getNoInStreams());
-                iac->initial_tsn = htonl(initAckChunk->getInitTsn());
-                // Var.-Len. Parameters
-                int32 parPtr = 0;
-                if (initAckChunk->getIpv4Supported() || initAckChunk->getIpv6Supported()) {
-                    struct supported_address_types_parameter *sup_addr = (struct supported_address_types_parameter *)(((unsigned char *)iac) + sizeof(struct init_chunk) + parPtr);
-                    sup_addr->type = htons(INIT_SUPPORTED_ADDRESS);
-                    sup_addr->length = htons(8);
-                    if (initAckChunk->getIpv4Supported() && initAckChunk->getIpv6Supported()) {
-                        sup_addr->address_type_1 = htons(INIT_PARAM_IPV4);
-                        sup_addr->address_type_2 = htons(INIT_PARAM_IPV6);
-                    } else if (initAckChunk->getIpv4Supported()) {
-                        sup_addr->address_type_1 = htons(INIT_PARAM_IPV4);
-                        sup_addr->address_type_2 = 0;
-                    } else {
-                        sup_addr->address_type_1 = htons(INIT_PARAM_IPV6);
-                        sup_addr->address_type_2 = 0;
-                    }
-                    parPtr += 8;
-                }
-                if (initAckChunk->getForwardTsn() == true) {
-                    struct forward_tsn_supported_parameter *forward = (struct forward_tsn_supported_parameter *)(((unsigned char *)iac) + sizeof(struct init_chunk) + parPtr);
-                    forward->type = htons(FORWARD_TSN_SUPPORTED_PARAMETER);
-                    forward->length = htons(4);
-                    parPtr += 4;
-                }
-
-                int32 numaddr = initAckChunk->getAddressesArraySize();
-                for (int32 i = 0; i < numaddr; i++) {
-#ifdef WITH_IPv4
-                    if (initAckChunk->getAddresses(i).getType() == L3Address::IPv4) {
-                        struct init_ipv4_address_parameter *ipv4addr = (struct init_ipv4_address_parameter *)(((unsigned char *)iac) + sizeof(struct init_chunk) + parPtr);
-                        ipv4addr->type = htons(INIT_PARAM_IPV4);
-                        ipv4addr->length = htons(8);
-                        ipv4addr->address = htonl(initAckChunk->getAddresses(i).toIpv4().getInt());
-                        parPtr += sizeof(struct init_ipv4_address_parameter);
-                    }
-#endif // ifdef WITH_IPv4
-#ifdef WITH_IPv6
-                    if (initAckChunk->getAddresses(i).getType() == L3Address::IPv6) {
-                        struct init_ipv6_address_parameter *ipv6addr = (struct init_ipv6_address_parameter *)(((unsigned char *)iac) + sizeof(struct init_chunk) + parPtr);
-                        ipv6addr->type = htons(INIT_PARAM_IPV6);
-                        ipv6addr->length = htons(20);
-                        for (int j = 0; j < 4; j++) {
-                            ipv6addr->address[j] = htonl(initAckChunk->getAddresses(i).toIpv6().words()[j]);
-                        }
-                        parPtr += sizeof(struct init_ipv6_address_parameter);
-                    }
-#endif // ifdef WITH_IPv6
-                }
-                int chunkcount = initAckChunk->getSepChunksArraySize();
-                if (chunkcount > 0) {
-                    struct supported_extensions_parameter *supext = (struct supported_extensions_parameter *)(((unsigned char *)iac) + sizeof(struct init_chunk) + parPtr);
-                    supext->type = htons(SUPPORTED_EXTENSIONS);
-                    int chunkcount = initAckChunk->getSepChunksArraySize();
-                    supext->length = htons(sizeof(struct supported_extensions_parameter) + chunkcount);
-                    for (int i = 0; i < chunkcount; i++) {
-                        supext->chunk_type[i] = initAckChunk->getSepChunks(i);
-                    }
-                    parPtr += ADD_PADDING(sizeof(struct supported_extensions_parameter) + chunkcount);
-                }
-                uint32 uLen = initAckChunk->getUnrecognizedParametersArraySize();
-                if (uLen > 0) {
-                    int32 k = 0;
-                    uint32 pLen = 0;
-                    while (uLen > 0) {
-                        struct tlv *unknown = (struct tlv *)(((unsigned char *)iac) + sizeof(struct init_chunk) + parPtr);
-                        unknown->type = htons(UNRECOGNIZED_PARAMETER);
-                        pLen = initAckChunk->getUnrecognizedParameters(k + 2) * 16 + initAckChunk->getUnrecognizedParameters(k + 3);
-                        unknown->length = htons(pLen + 4);
-                        for (uint32 i = 0; i < ADD_PADDING(pLen); i++, k++)
-                            unknown->value[i] = initAckChunk->getUnrecognizedParameters(k);
-                        parPtr += ADD_PADDING(pLen + 4);
-                        uLen -= ADD_PADDING(pLen);
-                    }
-                }
-                if (initAckChunk->getHmacTypesArraySize() > 0) {
-                    unsigned int sizeVector;
-                    struct random_parameter *random = (struct random_parameter *)(((unsigned char *)iac) + sizeof(struct init_chunk) + parPtr);
-                    random->type = htons(RANDOM);
-                    int randomsize = initAckChunk->getRandomArraySize();
-                    unsigned char *vector = (unsigned char *)malloc(64);
-                    struct random_parameter *rp = (struct random_parameter *)((unsigned char *)vector);
-                    rp->type = htons(RANDOM);
-                    for (int i = 0; i < randomsize; i++) {
-                        random->random[i] = (initAckChunk->getRandom(i));
-                        rp->random[i] = (initAckChunk->getRandom(i));
-                    }
-                    parPtr += ADD_PADDING(sizeof(struct random_parameter) + randomsize);
-                    random->length = htons(sizeof(struct random_parameter) + randomsize);
-                    rp->length = htons(sizeof(struct random_parameter) + randomsize);
-                    sizeVector = ntohs(rp->length);
-                    struct tlv *chunks = (struct tlv *)(((unsigned char *)iac) + sizeof(struct init_chunk) + parPtr);
-                    struct tlv *cp = (struct tlv *)(((unsigned char *)vector) + 36);
-                    chunks->type = htons(CHUNKS);
-                    cp->type = htons(CHUNKS);
-                    int chunksize = initAckChunk->getSctpChunkTypesArraySize();
-                    for (int i = 0; i < chunksize; i++) {
-                        chunks->value[i] = (initAckChunk->getSctpChunkTypes(i));
-                        cp->value[i] = (initAckChunk->getSctpChunkTypes(i));
-                    }
-                    chunks->length = htons(sizeof(struct tlv) + chunksize);
-                    cp->length = htons(sizeof(struct tlv) + chunksize);
-                    sizeVector += sizeof(struct tlv) + chunksize;
-                    parPtr += ADD_PADDING(sizeof(struct tlv) + chunksize);
-                    struct hmac_algo *hmac = (struct hmac_algo *)(((unsigned char *)iac) + sizeof(struct init_chunk) + parPtr);
-                    struct hmac_algo *hp = (struct hmac_algo *)(((unsigned char *)(vector)) + 36 + sizeof(struct tlv) + chunksize);
-                    hmac->type = htons(HMAC_ALGO);
-                    hp->type = htons(HMAC_ALGO);
-                    hmac->length = htons(4 + 2 * initAckChunk->getHmacTypesArraySize());
-                    hp->length = htons(4 + 2 * initAckChunk->getHmacTypesArraySize());
-                    sizeVector += (4 + 2 * initAckChunk->getHmacTypesArraySize());
-                    for (unsigned int i = 0; i < initAckChunk->getHmacTypesArraySize(); i++) {
-                        hmac->ident[i] = htons(initAckChunk->getHmacTypes(i));
-                        hp->ident[i] = htons(initAckChunk->getHmacTypes(i));
-                    }
-                    parPtr += ADD_PADDING(4 + 2 * initAckChunk->getHmacTypesArraySize());
-                    for (unsigned int k = 0; k < min(sizeVector, 64); k++) {
-                        if (sizeKeyVector != 0)
-                            peerKeyVector[k] = vector[k];
-                        else
-                            keyVector[k] = vector[k];
-                    }
-
-                    if (sizeKeyVector != 0)
-                        sizePeerKeyVector = sizeVector;
-                    else
-                        sizeKeyVector = sizeVector;
-                 /* ToDo */
-                 //   calculateSharedKey();
-                    free(vector);
-                }
-                int32 cookielen = initAckChunk->getCookieArraySize();
-                if (cookielen == 0) {
-                    SctpCookie *stateCookie = (SctpCookie *)(initAckChunk->getStateCookie());
-                  //  SctpCookie *stateCookie = check_and_cast<SctpCookie *>(initAckChunk->getStateCookie());
-                    struct init_cookie_parameter *cookie = (struct init_cookie_parameter *)(((unsigned char *)iac) + sizeof(struct init_chunk) + parPtr);
-                    cookie->type = htons(INIT_PARAM_COOKIE);
-                    cookie->length = htons(SCTP_COOKIE_LENGTH + 4);
-                    cookie->creationTime = htonl((uint32)stateCookie->getCreationTime().dbl());
-                    cookie->localTag = htonl(stateCookie->getLocalTag());
-                    cookie->peerTag = htonl(stateCookie->getPeerTag());
-                    for (int32 i = 0; i < 32; i++) {
-                        cookie->localTieTag[i] = stateCookie->getLocalTieTag(i);
-                        cookie->peerTieTag[i] = stateCookie->getPeerTieTag(i);
-                    }
-                    parPtr += (SCTP_COOKIE_LENGTH + 4);
-                } else {
-                    struct tlv *cookie = (struct tlv *)(((unsigned char *)iac) + sizeof(struct init_chunk) + parPtr);
-                    cookie->type = htons(INIT_PARAM_COOKIE);
-                    cookie->length = htons(cookielen + 4);
-                    for (int32 i = 0; i < cookielen; i++)
-                        cookie->value[i] = initAckChunk->getCookie(i);
-                    parPtr += cookielen + 4;
-                }
-                iac->length = htons(SCTP_INIT_CHUNK_LENGTH + parPtr);
-                writtenbytes += SCTP_INIT_CHUNK_LENGTH + parPtr;
-                break;
-            }
-
-            case SACK: {
-                SctpSackChunk *sackChunk = check_and_cast<SctpSackChunk *>(chunk);
-
-                // destination is send buffer:
-                struct sack_chunk *sac = (struct sack_chunk *)(buffer + writtenbytes);    // append data to buffer
-                writtenbytes += sackChunk->getByteLength();
-
-                // fill buffer with data from Sctp init ack chunk structure
-                sac->type = sackChunk->getSctpChunkType();
-                sac->flags = 0;
-                sac->length = htons(sackChunk->getByteLength());
-                uint32 cumtsnack = sackChunk->getCumTsnAck();
-                sac->cum_tsn_ack = htonl(cumtsnack);
-                sac->a_rwnd = htonl(sackChunk->getA_rwnd());
-                sac->nr_of_gaps = htons(sackChunk->getNumGaps());
-                sac->nr_of_dups = htons(sackChunk->getNumDupTsns());
-
-                // GAPs and Dup. TSNs:
-                int16 numgaps = sackChunk->getNumGaps();
-                int16 numdups = sackChunk->getNumDupTsns();
-                for (int16 i = 0; i < numgaps; i++) {
-                    struct sack_gap *gap = (struct sack_gap *)(((unsigned char *)sac) + sizeof(struct sack_chunk) + i * sizeof(struct sack_gap));
-                    gap->start = htons(sackChunk->getGapStart(i) - cumtsnack);
-                    gap->stop = htons(sackChunk->getGapStop(i) - cumtsnack);
-                }
-                for (int16 i = 0; i < numdups; i++) {
-                    struct sack_duptsn *dup = (struct sack_duptsn *)(((unsigned char *)sac) + sizeof(struct sack_chunk) + numgaps * sizeof(struct sack_gap) + i * sizeof(struct sack_duptsn));
-                    dup->tsn = htonl(sackChunk->getDupTsns(i));
-                }
-                break;
-            }
-
-            case NR_SACK: {
-                SctpSackChunk *sackChunk = check_and_cast<SctpSackChunk *>(chunk);
-
-                // destination is send buffer:
-                struct nr_sack_chunk *sac = (struct nr_sack_chunk *)(buffer + writtenbytes);    // append data to buffer
-                writtenbytes += sackChunk->getByteLength();
-
-                // fill buffer with data from Sctp init ack chunk structure
-                sac->type = sackChunk->getSctpChunkType();
-                sac->flags = 0;
-                sac->length = htons(sackChunk->getByteLength());
-                uint32 cumtsnack = sackChunk->getCumTsnAck();
-                sac->cum_tsn_ack = htonl(cumtsnack);
-                sac->a_rwnd = htonl(sackChunk->getA_rwnd());
-                sac->nr_of_gaps = htons(sackChunk->getNumGaps());
-                sac->nr_of_dups = htons(sackChunk->getNumDupTsns());
-
-                // GAPs and Dup. TSNs:
-                int16 numgaps = sackChunk->getNumGaps();
-                int16 numdups = sackChunk->getNumDupTsns();
-                int16 numnrgaps = 0;
-                for (int16 i = 0; i < numgaps; i++) {
-                    struct sack_gap *gap = (struct sack_gap *)(((unsigned char *)sac) + sizeof(struct nr_sack_chunk) + i * sizeof(struct sack_gap));
-                    gap->start = htons(sackChunk->getGapStart(i) - cumtsnack);
-                    gap->stop = htons(sackChunk->getGapStop(i) - cumtsnack);
-                }
-                sac->nr_of_nr_gaps = htons(sackChunk->getNumNrGaps());
-                sac->reserved = htons(0);
-                numnrgaps = sackChunk->getNumNrGaps();
-                for (int16 i = 0; i < numnrgaps; i++) {
-                    struct sack_gap *gap = (struct sack_gap *)(((unsigned char *)sac) + sizeof(struct nr_sack_chunk) + (numgaps + i) * sizeof(struct sack_gap));
-                    gap->start = htons(sackChunk->getNrGapStart(i) - cumtsnack);
-                    gap->stop = htons(sackChunk->getNrGapStop(i) - cumtsnack);
-                }
-                for (int16 i = 0; i < numdups; i++) {
-                    struct sack_duptsn *dup = (struct sack_duptsn *)(((unsigned char *)sac) + sizeof(struct nr_sack_chunk) + (numgaps + numnrgaps) * sizeof(struct sack_gap) + i * sizeof(sack_duptsn));
-                    dup->tsn = htonl(sackChunk->getDupTsns(i));
-                }
-                break;
-            }
-
-            case HEARTBEAT :
-                {
-                    EV_INFO << simTime() << "  SctpAssociation:: Heartbeat sent \n";
-                    SctpHeartbeatChunk *heartbeatChunk = check_and_cast<SctpHeartbeatChunk *>(chunk);
-
-                    // destination is send buffer:
-                    struct heartbeat_chunk *hbc = (struct heartbeat_chunk *)(buffer + writtenbytes);    // append data to buffer
-
-                    // fill buffer with data from Sctp init ack chunk structure
-                    hbc->type = heartbeatChunk->getSctpChunkType();
-
-                    // deliver info:
-                    struct heartbeat_info *hbi = (struct heartbeat_info *)(((unsigned char *)hbc) + sizeof(struct heartbeat_chunk));
-                    L3Address addr = heartbeatChunk->getRemoteAddr();
-                    simtime_t time = heartbeatChunk->getTimeField();
-                    int32 infolen = 0;
-#ifdef WITH_IPv4
-                    if (addr.getType() == L3Address::IPv4) {
-                        infolen = sizeof(addr.toIpv4().getInt()) + sizeof(uint32);
-                        hbi->type = htons(1);    // mandatory
-                        hbi->length = htons(infolen + 4);
-                        struct init_ipv4_address_parameter *ipv4addr = (struct init_ipv4_address_parameter *)(((unsigned char *)hbc) + 8);
-                        ipv4addr->type = htons(INIT_PARAM_IPV4);
-                        ipv4addr->length = htons(8);
-                        ipv4addr->address = htonl(addr.toIpv4().getInt());
-                        HBI_ADDR(hbi).v4addr = *ipv4addr;
-                    }
-#endif // ifdef WITH_IPv4
-#ifdef WITH_IPv6
-                    if (addr.getType() == L3Address::IPv6) {
-                        infolen = 20 + sizeof(uint32);
-                        hbi->type = htons(1);    // mandatory
-                        hbi->length = htons(infolen + 4);
-                        struct init_ipv6_address_parameter *ipv6addr = (struct init_ipv6_address_parameter *)(((unsigned char *)hbc) + 8);
-                        ipv6addr->type = htons(INIT_PARAM_IPV6);
-                        ipv6addr->length = htons(20);
-                        for (int32 j = 0; j < 4; j++) {
-                            ipv6addr->address[j] = htonl(addr.toIpv6().words()[j]);
-                        }
-                        HBI_ADDR(hbi).v6addr = *ipv6addr;
-                    }
-#endif // ifdef WITH_IPv6
-                    ASSERT(infolen != 0);
-                    HBI_TIME(hbi) = htonl((uint32)time.dbl());
-                    hbc->length = htons(sizeof(struct heartbeat_chunk) + infolen + 4);
-                    writtenbytes += sizeof(struct heartbeat_chunk) + infolen + 4;
-                    break;
-                }
-
-            case HEARTBEAT_ACK :
-                {
-                    EV_INFO << simTime() << " SctpAssociation:: HeartbeatAck sent \n";
-                    SctpHeartbeatAckChunk *heartbeatAckChunk = check_and_cast<SctpHeartbeatAckChunk *>(chunk);
-
-                    // destination is send buffer:
-                    struct heartbeat_ack_chunk *hbac = (struct heartbeat_ack_chunk *)(buffer + writtenbytes);    // append data to buffer
-
-                    // fill buffer with data from Sctp init ack chunk structure
-                    hbac->type = heartbeatAckChunk->getSctpChunkType();
-
-                    // deliver info:
-                    struct heartbeat_info *hbi = (struct heartbeat_info *)(((unsigned char *)hbac) + sizeof(struct heartbeat_ack_chunk));
-                    int32 infolen = heartbeatAckChunk->getInfoArraySize();
-                    hbi->type = htons(1);    //mandatory
-                    if (infolen > 0) {
-                        hbi->length = htons(infolen + 4);
-                        for (int32 i = 0; i < infolen; i++) {
-                            HBI_INFO(hbi)[i] = heartbeatAckChunk->getInfo(i);
-                        }
-                    }
-                    else {
-                        L3Address addr = heartbeatAckChunk->getRemoteAddr();
-                        simtime_t time = heartbeatAckChunk->getTimeField();
-
-#ifdef WITH_IPv4
-                        if (addr.getType() == L3Address::IPv4) {
-                            infolen = sizeof(addr.toIpv4().getInt()) + sizeof(uint32);
-                            hbi->type = htons(1);    // mandatory
-                            hbi->length = htons(infolen + 4);
-                            struct init_ipv4_address_parameter *ipv4addr = (struct init_ipv4_address_parameter *)(((unsigned char *)hbac) + 8);
-                            ipv4addr->type = htons(INIT_PARAM_IPV4);
-                            ipv4addr->length = htons(8);
-                            ipv4addr->address = htonl(addr.toIpv4().getInt());
-                            HBI_ADDR(hbi).v4addr = *ipv4addr;
-                        }
-#endif // ifdef WITH_IPv4
-#ifdef WITH_IPv6
-                        if (addr.getType() == L3Address::IPv6) {
-                            infolen = 20 + sizeof(uint32);
-                            hbi->type = htons(1);    // mandatory
-                            hbi->length = htons(infolen + 4);
-                            struct init_ipv6_address_parameter *ipv6addr = (struct init_ipv6_address_parameter *)(((unsigned char *)hbac) + 8);
-                            ipv6addr->type = htons(INIT_PARAM_IPV6);
-                            ipv6addr->length = htons(20);
-                            for (int32 j = 0; j < 4; j++) {
-                                ipv6addr->address[j] = htonl(addr.toIpv6().words()[j]);
-                            }
-                            HBI_ADDR(hbi).v6addr = *ipv6addr;
-                        }
-#endif // ifdef WITH_IPv6
-                        HBI_TIME(hbi) = htonl((uint32)time.dbl());
-                    }
-                    hbac->length = htons(sizeof(struct heartbeat_ack_chunk) + infolen + 4);
-                    writtenbytes += sizeof(struct heartbeat_ack_chunk) + infolen + 4;
-
-                    break;
-                }
-
-            case ABORT: {
-                EV_INFO << simTime() << " SctpAssociation:: Abort sent \n";
-                SctpAbortChunk *abortChunk = check_and_cast<SctpAbortChunk *>(chunk);
-
-                // destination is send buffer:
-                struct abort_chunk *ac = (struct abort_chunk *)(buffer + writtenbytes);    // append data to buffer
-                writtenbytes += (abortChunk->getByteLength());
-
-                // fill buffer with data from Sctp init ack chunk structure
-                ac->type = abortChunk->getSctpChunkType();
-                unsigned char flags = 0;
-                if (abortChunk->getT_Bit())
-                    flags |= T_BIT;
-                ac->flags = flags;
-                ac->length = htons(abortChunk->getByteLength());
-                break;
-            }
-
-            case COOKIE_ECHO: {
-                EV_INFO << simTime() << " SctpAssociation:: CookieEcho sent \n";
-                SctpCookieEchoChunk *cookieChunk = check_and_cast<SctpCookieEchoChunk *>(chunk);
-
-                struct cookie_echo_chunk *cec = (struct cookie_echo_chunk *)(buffer + writtenbytes);
-
-                cec->type = cookieChunk->getSctpChunkType();
-                cec->flags = 0;    // no flags available in this type of SctpChunk
-                cec->length = htons(cookieChunk->getByteLength());
-                int32 cookielen = cookieChunk->getCookieArraySize();
-                if (cookielen > 0) {
-                    for (int32 i = 0; i < cookielen; i++)
-                        cec->state_cookie[i] = cookieChunk->getCookie(i);
-                }
-                else {
-                    SctpCookie *stateCookie = (SctpCookie *)(cookieChunk->getStateCookie());
-                    struct cookie_parameter *cookie = (struct cookie_parameter *)(buffer + writtenbytes + 4);
-                    cookie->creationTime = htonl((uint32)stateCookie->getCreationTime().dbl());
-                    cookie->localTag = htonl(stateCookie->getLocalTag());
-                    cookie->peerTag = htonl(stateCookie->getPeerTag());
-                    for (int32 i = 0; i < 32; i++) {
-                        cookie->localTieTag[i] = stateCookie->getLocalTieTag(i);
-                        cookie->peerTieTag[i] = stateCookie->getPeerTieTag(i);
-                    }
-                }
-                uint32_t paddingEndPos = writtenbytes + ADD_PADDING(cookieChunk->getByteLength());
-                writtenbytes += cookieChunk->getByteLength();
-                while (writtenbytes < paddingEndPos)
-                    buffer[writtenbytes++] = 0;
-                uint32 uLen = cookieChunk->getUnrecognizedParametersArraySize();
-                if (uLen > 0) {
-                    struct error_chunk *error = (struct error_chunk *)(buffer + writtenbytes);
-                    error->type = ERRORTYPE;
-                    error->flags = 0;
-                    int32 k = 0;
-                    uint32 pLen = 0;
-                    uint32 ecLen = SCTP_ERROR_CHUNK_LENGTH;
-                    uint32 ecParPtr = 0;
-                    while (uLen > 0) {
-                        struct tlv *unknown = (struct tlv *)(((unsigned char *)error) + sizeof(struct error_chunk) + ecParPtr);
-                        unknown->type = htons(UNRECOGNIZED_PARAMETER);
-                        pLen = cookieChunk->getUnrecognizedParameters(k + 2) * 16 + cookieChunk->getUnrecognizedParameters(k + 3);
-                        unknown->length = htons(pLen + 4);
-                        ecLen += pLen + 4;
-                        for (uint32 i = 0; i < ADD_PADDING(pLen); i++, k++)
-                            unknown->value[i] = cookieChunk->getUnrecognizedParameters(k);
-                        ecParPtr += ADD_PADDING(pLen + 4);
-                        uLen -= ADD_PADDING(pLen);
-                    }
-                    error->length = htons(ecLen);
-                    writtenbytes += SCTP_ERROR_CHUNK_LENGTH + ecParPtr;
-                }
-
-                break;
-            }
-
-            case COOKIE_ACK: {
-                EV_INFO << simTime() << " SctpAssociation:: CookieAck sent \n";
-                SctpCookieAckChunk *cookieAckChunk = check_and_cast<SctpCookieAckChunk *>(chunk);
-
-                struct cookie_ack_chunk *cac = (struct cookie_ack_chunk *)(buffer + writtenbytes);
-                writtenbytes += cookieAckChunk->getByteLength();
-
-                cac->type = cookieAckChunk->getSctpChunkType();
-                cac->length = htons(cookieAckChunk->getByteLength());
-
-                break;
-            }
-
-            case SHUTDOWN: {
-                EV_INFO << simTime() << " SctpAssociation:: Shutdown sent \n";
-                SctpShutdownChunk *shutdownChunk = check_and_cast<SctpShutdownChunk *>(chunk);
-
-                struct shutdown_chunk *sac = (struct shutdown_chunk *)(buffer + writtenbytes);
-                writtenbytes += shutdownChunk->getByteLength();
-
-                sac->type = shutdownChunk->getSctpChunkType();
-                sac->cumulative_tsn_ack = htonl(shutdownChunk->getCumTsnAck());
-                sac->length = htons(shutdownChunk->getByteLength());
-
-                break;
-            }
-
-            case SHUTDOWN_ACK: {
-                EV_INFO << simTime() << " SctpAssociation:: ShutdownAck sent \n";
-                SctpShutdownAckChunk *shutdownAckChunk = check_and_cast<SctpShutdownAckChunk *>(chunk);
-
-                struct shutdown_ack_chunk *sac = (struct shutdown_ack_chunk *)(buffer + writtenbytes);
-                writtenbytes += shutdownAckChunk->getByteLength();
-
-                sac->type = shutdownAckChunk->getSctpChunkType();
-                sac->length = htons(shutdownAckChunk->getByteLength());
-
-                break;
-            }
-
-            case SHUTDOWN_COMPLETE: {
-                EV_INFO << simTime() << " SctpAssociation:: ShutdownComplete sent \n";
-                SctpShutdownCompleteChunk *shutdownCompleteChunk = check_and_cast<SctpShutdownCompleteChunk *>(chunk);
-
-                struct shutdown_complete_chunk *sac = (struct shutdown_complete_chunk *)(buffer + writtenbytes);
-                writtenbytes += shutdownCompleteChunk->getByteLength();
-
-                sac->type = shutdownCompleteChunk->getSctpChunkType();
-                sac->length = htons(shutdownCompleteChunk->getByteLength());
-                unsigned char flags = 0;
-                if (shutdownCompleteChunk->getTBit())
-                    flags |= T_BIT;
-                sac->flags = flags;
-                break;
-            }
-
-            case AUTH: {
-                SctpAuthenticationChunk *authChunk = check_and_cast<SctpAuthenticationChunk *>(chunk);
-                struct auth_chunk *auth = (struct auth_chunk *)(buffer + writtenbytes);
-                authstart = writtenbytes;
-                writtenbytes += SCTP_AUTH_CHUNK_LENGTH + SHA_LENGTH;
-                auth->type = authChunk->getSctpChunkType();
-                auth->flags = 0;
-                auth->length = htons(SCTP_AUTH_CHUNK_LENGTH + SHA_LENGTH);
-                auth->shared_key = htons(authChunk->getSharedKey());
-                auth->hmac_identifier = htons(authChunk->getHMacIdentifier());
-                for (int i = 0; i < SHA_LENGTH; i++)
-                    auth->hmac[i] = 0;
-                break;
-            }
-
-            case FORWARD_TSN: {
-                EV_INFO << simTime() << " SctpAssociation:: ForwardTsn sent" << endl;
-                SctpForwardTsnChunk *forward = check_and_cast<SctpForwardTsnChunk *>(chunk);
-                struct forward_tsn_chunk *forw = (struct forward_tsn_chunk *)(buffer + writtenbytes);
-                writtenbytes += (forward->getByteLength());
-                forw->type = forward->getSctpChunkType();
-                forw->length = htons(forward->getByteLength());
-                forw->cum_tsn = htonl(forward->getNewCumTsn());
-                int streamPtr = 0;
-                for (unsigned int i = 0; i < forward->getSidArraySize(); i++) {
-                    struct forward_tsn_streams *str = (struct forward_tsn_streams *)(((unsigned char *)forw) + sizeof(struct forward_tsn_chunk) + streamPtr);
-                    str->sid = htons(forward->getSid(i));
-                    str->ssn = htons(forward->getSsn(i));
-                    streamPtr += 4;
-                }
-                break;
-            }
-
-            case ASCONF: {
-                SctpAsconfChunk *asconfChunk = check_and_cast<SctpAsconfChunk *>(chunk);
-                struct asconf_chunk *asconf = (struct asconf_chunk *)(buffer + writtenbytes);
-                writtenbytes += (asconfChunk->getByteLength());
-                asconf->type = asconfChunk->getSctpChunkType();
-                asconf->length = htons(asconfChunk->getByteLength());
-                asconf->serial = htonl(asconfChunk->getSerialNumber());
-                int parPtr = 0;
-                struct init_ipv4_address_parameter *ipv4addr = (struct init_ipv4_address_parameter *)(((unsigned char *)asconf) + sizeof(struct asconf_chunk) + parPtr);
-                ipv4addr->type = htons(INIT_PARAM_IPV4);
-                ipv4addr->length = htons(8);
-                ipv4addr->address = htonl(asconfChunk->getAddressParam().toIpv4().getInt());
-                parPtr += 8;
-                for (unsigned int i = 0; i < asconfChunk->getAsconfParamsArraySize(); i++) {
-                    SctpParameter *parameter = (SctpParameter *)(asconfChunk->getAsconfParams(i));
-                    switch (parameter->getParameterType()) {
-                        case ADD_IP_ADDRESS: {
-                            SctpAddIPParameter *addip = check_and_cast<SctpAddIPParameter *>(parameter);
-                            struct add_ip_parameter *ip = (struct add_ip_parameter *)(((unsigned char *)asconf) + sizeof(struct asconf_chunk) + parPtr);
-                            parPtr += 8;
-                            ip->type = htons(ADD_IP_ADDRESS);
-                            ip->correlation_id = htonl(addip->getRequestCorrelationId());
-                            struct init_ipv4_address_parameter *ipv4addr = (struct init_ipv4_address_parameter *)(((unsigned char *)asconf) + sizeof(struct asconf_chunk) + parPtr);
-                            ipv4addr->type = htons(INIT_PARAM_IPV4);
-                            ipv4addr->length = htons(8);
-                            ipv4addr->address = htonl(addip->getAddressParam().toIpv4().getInt());
-                            parPtr += 8;
-                            ip->length = htons(addip->getByteLength());
-                            break;
-                        }
-
-                        case DELETE_IP_ADDRESS: {
-                            SctpDeleteIPParameter *deleteip = check_and_cast<SctpDeleteIPParameter *>(parameter);
-                            struct add_ip_parameter *ip = (struct add_ip_parameter *)(((unsigned char *)asconf) + sizeof(struct asconf_chunk) + parPtr);
-                            parPtr += 8;
-                            ip->type = htons(DELETE_IP_ADDRESS);
-                            ip->correlation_id = htonl(deleteip->getRequestCorrelationId());
-                            struct init_ipv4_address_parameter *ipv4addr = (struct init_ipv4_address_parameter *)(((unsigned char *)asconf) + sizeof(struct asconf_chunk) + parPtr);
-                            ipv4addr->type = htons(INIT_PARAM_IPV4);
-                            ipv4addr->length = htons(8);
-                            ipv4addr->address = htonl(deleteip->getAddressParam().toIpv4().getInt());
-                            parPtr += 8;
-                            ip->length = htons(deleteip->getByteLength());
-                            break;
-                        }
-
-                        case SET_PRIMARY_ADDRESS: {
-                            SctpSetPrimaryIPParameter *setip = check_and_cast<SctpSetPrimaryIPParameter *>(parameter);
-                            struct add_ip_parameter *ip = (struct add_ip_parameter *)(((unsigned char *)asconf) + sizeof(struct asconf_chunk) + parPtr);
-                            parPtr += 8;
-                            ip->type = htons(SET_PRIMARY_ADDRESS);
-                            ip->correlation_id = htonl(setip->getRequestCorrelationId());
-                            struct init_ipv4_address_parameter *ipv4addr = (struct init_ipv4_address_parameter *)(((unsigned char *)asconf) + sizeof(struct asconf_chunk) + parPtr);
-                            ipv4addr->type = htons(INIT_PARAM_IPV4);
-                            ipv4addr->length = htons(8);
-                            ipv4addr->address = htonl(setip->getAddressParam().toIpv4().getInt());
-                            parPtr += 8;
-                            ip->length = htons(setip->getByteLength());
-                            break;
-                        }
-                    }
-                }
-                break;
-            }
-
-            case ASCONF_ACK: {
-                SctpAsconfAckChunk *asconfAckChunk = check_and_cast<SctpAsconfAckChunk *>(chunk);
-                struct asconf_ack_chunk *asconfack = (struct asconf_ack_chunk *)(buffer + writtenbytes);
-                writtenbytes += SCTP_ADD_IP_CHUNK_LENGTH;
-                asconfack->type = asconfAckChunk->getSctpChunkType();
-                asconfack->length = htons(asconfAckChunk->getByteLength());
-                asconfack->serial = htonl(asconfAckChunk->getSerialNumber());
-                int parPtr = 0;
-                for (unsigned int i = 0; i < asconfAckChunk->getAsconfResponseArraySize(); i++) {
-                    SctpParameter *parameter = check_and_cast<SctpParameter *>(asconfAckChunk->getAsconfResponse(i));
-                    switch (parameter->getParameterType()) {
-                        case ERROR_CAUSE_INDICATION: {
-                            SctpErrorCauseParameter *error = check_and_cast<SctpErrorCauseParameter *>(parameter);
-                            struct add_ip_parameter *addip = (struct add_ip_parameter *)(((unsigned char *)asconfack) + sizeof(struct asconf_ack_chunk) + parPtr);
-                            addip->type = htons(error->getParameterType());
-                            addip->length = htons(error->getByteLength());
-                            addip->correlation_id = htonl(error->getResponseCorrelationId());
-                            parPtr += 8;
-                            struct error_cause *errorc = (struct error_cause *)(((unsigned char *)asconfack) + sizeof(struct asconf_ack_chunk) + parPtr);
-                            errorc->cause_code = htons(error->getErrorCauseType());
-                            errorc->length = htons(error->getByteLength() - 8);
-                            parPtr += 4;
-                            if (check_and_cast<SctpParameter *>(error->getEncapsulatedPacket()) != nullptr) {
-                                SctpParameter *encParameter = check_and_cast<SctpParameter *>(error->getEncapsulatedPacket());
-                                switch (encParameter->getParameterType()) {
-                                    case ADD_IP_ADDRESS: {
-                                        SctpAddIPParameter *addip = check_and_cast<SctpAddIPParameter *>(encParameter);
-                                        struct add_ip_parameter *ip = (struct add_ip_parameter *)(((unsigned char *)errorc) + sizeof(struct error_cause));
-                                        parPtr += 8;
-                                        ip->type = htons(ADD_IP_ADDRESS);
-                                        ip->correlation_id = htonl(addip->getRequestCorrelationId());
-                                        struct init_ipv4_address_parameter *ipv4addr = (struct init_ipv4_address_parameter *)(((unsigned char *)errorc) + sizeof(struct error_cause) + 8);
-                                        ipv4addr->length = htons(8);
-                                        ipv4addr->address = htonl(addip->getAddressParam().toIpv4().getInt());
-                                        parPtr += 8;
-                                        ip->length = htons(addip->getByteLength());
-                                        break;
-                                    }
-
-                                    case DELETE_IP_ADDRESS: {
-                                        SctpDeleteIPParameter *deleteip = check_and_cast<SctpDeleteIPParameter *>(encParameter);
-                                        struct add_ip_parameter *ip = (struct add_ip_parameter *)(((unsigned char *)errorc) + sizeof(struct error_cause));
-                                        parPtr += 8;
-                                        ip->type = htons(DELETE_IP_ADDRESS);
-                                        ip->correlation_id = htonl(deleteip->getRequestCorrelationId());
-                                        struct init_ipv4_address_parameter *ipv4addr = (struct init_ipv4_address_parameter *)(((unsigned char *)errorc) + sizeof(struct error_cause) + 8);
-                                        ipv4addr->type = htons(INIT_PARAM_IPV4);
-                                        ipv4addr->length = htons(8);
-                                        ipv4addr->address = htonl(deleteip->getAddressParam().toIpv4().getInt());
-                                        parPtr += 8;
-                                        ip->length = htons(deleteip->getByteLength());
-                                        break;
-                                    }
-
-                                    case SET_PRIMARY_ADDRESS: {
-                                        SctpSetPrimaryIPParameter *setip = check_and_cast<SctpSetPrimaryIPParameter *>(encParameter);
-                                        struct add_ip_parameter *ip = (struct add_ip_parameter *)(((unsigned char *)errorc) + sizeof(struct error_cause));
-                                        parPtr += 8;
-                                        ip->type = htons(SET_PRIMARY_ADDRESS);
-                                        ip->correlation_id = htonl(setip->getRequestCorrelationId());
-                                        struct init_ipv4_address_parameter *ipv4addr = (struct init_ipv4_address_parameter *)(((unsigned char *)errorc) + sizeof(struct error_cause) + 8);
-                                        ipv4addr->type = htons(INIT_PARAM_IPV4);
-                                        ipv4addr->length = htons(8);
-                                        ipv4addr->address = htonl(setip->getAddressParam().toIpv4().getInt());
-                                        parPtr += 8;
-                                        ip->length = htons(setip->getByteLength());
-                                        break;
-                                    }
-                                }
-                            }
-                            break;
-                        }
-
-                        case SUCCESS_INDICATION: {
-                            SctpSuccessIndication *success = check_and_cast<SctpSuccessIndication *>(parameter);
-                            struct add_ip_parameter *addip = (struct add_ip_parameter *)(((unsigned char *)asconfack) + sizeof(struct asconf_ack_chunk) + parPtr);
-                            addip->type = htons(success->getParameterType());
-                            addip->length = htons(8);
-                            addip->correlation_id = htonl(success->getResponseCorrelationId());
-                            parPtr += 8;
-                            break;
-                        }
-                    }
-                }
-                writtenbytes += parPtr;
-                break;
-            }
-
-            case ERRORTYPE: {
-                SctpErrorChunk *errorchunk = check_and_cast<SctpErrorChunk *>(chunk);
-                struct error_chunk *error = (struct error_chunk *)(buffer + writtenbytes);
-                error->type = errorchunk->getSctpChunkType();
-                uint16 flags = 0;
-                if (errorchunk->getMBit())
-                    flags |= NAT_M_FLAG;
-                if (errorchunk->getTBit())
-                    flags |= NAT_T_FLAG;
-                error->flags = flags;
-                error->length = htons(errorchunk->getByteLength());
-
-                if (errorchunk->getParametersArraySize() > 0) {
-                    SctpParameter *parameter = check_and_cast<SctpParameter *>(errorchunk->getParameters(0));
-                    switch (parameter->getParameterType()) {
-                        case MISSING_NAT_ENTRY: {
-                            SctpSimpleErrorCauseParameter *ecp = check_and_cast<SctpSimpleErrorCauseParameter *>(parameter);
-                            struct error_cause *errorc = (struct error_cause *)(((unsigned char *)error) + sizeof(struct error_chunk));
-                            errorc->cause_code = htons(ecp->getParameterType());
-                            /* ToDo */
-                          /*  if (check_and_cast<Ipv4Header *>(ecp->getEncapsulatedPacket()) != nullptr) {
-                                Buffer b((unsigned char *)error + sizeof(struct error_chunk) + 4, ecp->getByteLength() - 4);
-                                Context c;
-                                Ipv4Serializer().serializePacket(ecp->getEncapsulatedPacket(), b, c);
-                            }*/
-                            errorc->length = htons(ecp->getByteLength());
-                            break;
-                        }
-                        case INVALID_STREAM_IDENTIFIER: {
-                            SctpSimpleErrorCauseParameter *ecp = check_and_cast<SctpSimpleErrorCauseParameter *>(parameter);
-                            struct error_cause_with_int *errorc = (struct error_cause_with_int *)(((unsigned char *)error) + sizeof(struct error_chunk));
-                            errorc->cause_code = htons(ecp->getParameterType());
-                            errorc->length = htons(ecp->getByteLength());
-                            errorc->info = htons(ecp->getValue());
-                            errorc->reserved = 0;
-                            break;
-                        }
-                        default: EV_WARN << "Error cause " << parameter->getParameterType() << " not implemented\n";
-                    }
-                    writtenbytes += errorchunk->getByteLength();
-                }
-                else
-                    writtenbytes += ADD_PADDING(error->length);
-                break;
-            }
-
-            case RE_CONFIG: {
-                SctpStreamResetChunk *streamReset = check_and_cast<SctpStreamResetChunk *>(chunk);
-                struct stream_reset_chunk *stream = (struct stream_reset_chunk *)(buffer + writtenbytes);
-                writtenbytes += (streamReset->getByteLength());
-                stream->type = streamReset->getSctpChunkType();
-                int parPtr = 0;
-                uint16 numParameters = streamReset->getParametersArraySize();
-                for (int i = 0; i < numParameters; i++) {
-                    SctpParameter *parameter = (SctpParameter *)(streamReset->getParameters(i));
-                    switch (parameter->getParameterType()) {
-                        case OUTGOING_RESET_REQUEST_PARAMETER: {
-                            SctpOutgoingSsnResetRequestParameter *outparam = check_and_cast<SctpOutgoingSsnResetRequestParameter *>(parameter);
-                            struct outgoing_reset_request_parameter *out = (outgoing_reset_request_parameter *)(((unsigned char *)stream) + sizeof(struct stream_reset_chunk) + parPtr);
-                            out->type = htons(outparam->getParameterType());
-                            out->srReqSn = htonl(outparam->getSrReqSn());
-                            out->srResSn = htonl(outparam->getSrResSn());
-                            out->lastTsn = htonl(outparam->getLastTsn());
-                            parPtr += sizeof(struct outgoing_reset_request_parameter);
-                            if (outparam->getStreamNumbersArraySize() > 0) {
-                                for (unsigned int j = 0; j < outparam->getStreamNumbersArraySize(); j++) {
-                                    out->streamNumbers[j] = htons(outparam->getStreamNumbers(j));
-                                }
-                                if (i < numParameters - 1) {
-                                    parPtr += ADD_PADDING(outparam->getStreamNumbersArraySize() * 2);
-                                } else {
-                                    parPtr += outparam->getStreamNumbersArraySize() * 2;
-                                }
-                            }
-                            out->length = htons(sizeof(struct outgoing_reset_request_parameter) + outparam->getStreamNumbersArraySize() * 2);
-                            break;
-                        }
-
-                        case INCOMING_RESET_REQUEST_PARAMETER: {
-                            SctpIncomingSsnResetRequestParameter *inparam = check_and_cast<SctpIncomingSsnResetRequestParameter *>(parameter);
-                            struct incoming_reset_request_parameter *in = (incoming_reset_request_parameter *)(((unsigned char *)stream) + sizeof(struct stream_reset_chunk) + parPtr);
-                            in->type = htons(inparam->getParameterType());
-                            in->srReqSn = htonl(inparam->getSrReqSn());
-                            parPtr += sizeof(struct incoming_reset_request_parameter);
-                            if (inparam->getStreamNumbersArraySize() > 0) {
-                                for (unsigned int j = 0; j < inparam->getStreamNumbersArraySize(); j++) {
-                                    in->streamNumbers[j] = htons(inparam->getStreamNumbers(j));
-                                }
-                                if (i < numParameters - 1) {
-                                    parPtr += ADD_PADDING(inparam->getStreamNumbersArraySize() * 2);
-                                } else {
-                                    parPtr += inparam->getStreamNumbersArraySize() * 2;
-                                }
-                            }
-                            in->length = htons(sizeof(struct incoming_reset_request_parameter) + inparam->getStreamNumbersArraySize() * 2);
-                            break;
-                        }
-
-                        case SSN_TSN_RESET_REQUEST_PARAMETER: {
-                            SctpSsnTsnResetRequestParameter *ssnparam = check_and_cast<SctpSsnTsnResetRequestParameter *>(parameter);
-                            struct ssn_tsn_reset_request_parameter *ssn = (struct ssn_tsn_reset_request_parameter *)(((unsigned char *)stream) + sizeof(struct stream_reset_chunk) + parPtr);
-                            ssn->type = htons(ssnparam->getParameterType());
-                            ssn->length = htons(8);
-                            ssn->srReqSn = htonl(ssnparam->getSrReqSn());
-                            parPtr += sizeof(struct ssn_tsn_reset_request_parameter);
-                            break;
-                        }
-
-                        case STREAM_RESET_RESPONSE_PARAMETER: {
-                            SctpStreamResetResponseParameter *response = check_and_cast<SctpStreamResetResponseParameter *>(parameter);
-                            struct stream_reset_response_parameter *resp = (struct stream_reset_response_parameter *)(((unsigned char *)stream) + sizeof(struct stream_reset_chunk) + parPtr);
-                            resp->type = htons(response->getParameterType());
-                            resp->srResSn = htonl(response->getSrResSn());
-                            resp->result = htonl(response->getResult());
-                            resp->length = htons(12);
-                            parPtr += 12;
-                            if (response->getSendersNextTsn() != 0) {
-                                resp->sendersNextTsn = htonl(response->getSendersNextTsn());
-                                resp->receiversNextTsn = htonl(response->getReceiversNextTsn());
-                                resp->length = htons(20);
-                                parPtr += 8;
-                            }
-                            break;
-                        }
-
-                        case ADD_INCOMING_STREAMS_REQUEST_PARAMETER: {
-                            SctpAddStreamsRequestParameter *instreams = check_and_cast<SctpAddStreamsRequestParameter *>(parameter);
-                            struct add_streams_request_parameter *addinp = (struct add_streams_request_parameter *)(((unsigned char *)stream) + sizeof(struct stream_reset_chunk) + parPtr);
-                            addinp->type = htons(instreams->getParameterType());
-                            addinp->srReqSn = htonl(instreams->getSrReqSn());
-                            addinp->numberOfStreams = htons(instreams->getNumberOfStreams());
-                            addinp->reserved = 0;
-                            addinp->length = htons(12);
-                            parPtr += 12;
-                            break;
-                        }
-
-                       case ADD_OUTGOING_STREAMS_REQUEST_PARAMETER: {
-                            SctpAddStreamsRequestParameter *outstreams = check_and_cast<SctpAddStreamsRequestParameter *>(parameter);
-                            struct add_streams_request_parameter *addoutp = (struct add_streams_request_parameter *)(((unsigned char *)stream) + sizeof(struct stream_reset_chunk) + parPtr);
-                            addoutp->type = htons(outstreams->getParameterType());
-                            addoutp->srReqSn = htonl(outstreams->getSrReqSn());
-                            addoutp->numberOfStreams = htons(outstreams->getNumberOfStreams());
-                            addoutp->reserved = 0;
-                            addoutp->length = htons(12);
-                            parPtr += 12;
-                            break;
-                        }
-                    }
-                }
-                stream->length = htons(SCTP_STREAM_RESET_CHUNK_LENGTH + parPtr);
-                break;
-            }
-
-            case PKTDROP: {
-                SctpPacketDropChunk *packetdrop = check_and_cast<SctpPacketDropChunk *>(chunk);
-                struct pktdrop_chunk *drop = (struct pktdrop_chunk *)(buffer + writtenbytes);
-                unsigned char flags = 0;
-                if (packetdrop->getCFlag())
-                    flags |= C_FLAG;
-                if (packetdrop->getTFlag())
-                    flags |= T_FLAG;
-                if (packetdrop->getBFlag())
-                    flags |= B_FLAG;
-                if (packetdrop->getMFlag())
-                    flags |= M_FLAG;
-                drop->flags = flags;
-                drop->type = packetdrop->getSctpChunkType();
-                drop->max_rwnd = htonl(packetdrop->getMaxRwnd());
-                drop->queued_data = htonl(packetdrop->getQueuedData());
-                drop->trunc_length = htons(packetdrop->getTruncLength());
-                drop->reserved = 0;
-                SctpHeader *msg = check_and_cast<SctpHeader *>(packetdrop->getEncapsulatedPacket());
-                int msglen = B(msg->getChunkLength()).get();
-                drop->length = htons(SCTP_PKTDROP_CHUNK_LENGTH + msglen);
-                //int len = serialize(msg, drop->dropped_data, msglen);
-                writtenbytes += (packetdrop->getByteLength());
-                break;
-            }
-
-            default:
-                throw cRuntimeError("TODO: unknown chunktype in outgoing packet on external interface! Implement it!");
-        }
-    }
-    // calculate the HMAC if required
-    uint8 result[SHA_LENGTH];
-    if (authstart != 0) {
-        struct data_vector *ac = (struct data_vector *)(buffer + authstart);
-        EV_DETAIL << "sizeKeyVector=" << sizeKeyVector << ", sizePeerKeyVector=" << sizePeerKeyVector << "\n";
-        hmacSha1((uint8 *)ac->data, writtenbytes - authstart, sharedKey, sizeKeyVector + sizePeerKeyVector, result);
-        struct auth_chunk *auth = (struct auth_chunk *)(buffer + authstart);
-        for (int32 k = 0; k < SHA_LENGTH; k++)
-            auth->hmac[k] = result[k];
-    }
-    // finally, set the CRC32 checksum field in the Sctp common header
-    ch->checksum = SctpChecksum::checksum((unsigned char *)buffer, writtenbytes);
+    uint32 writtenBytes = 0;
+    uint8* buffer = serializeSctpHeaderIntoBuffer(msg, writtenBytes);
     // check the serialized packet length
-    if (writtenbytes != B(msg->getChunkLength()).get()) {
-        throw cRuntimeError("Sctp Serializer error: writtenbytes (%lu) != msgLength(%lu) in message (%s)%s",
-                writtenbytes, (unsigned long)B(msg->getChunkLength()).get(), msg->getClassName(), msg->getFullName());
+    if (writtenBytes != B(msg->getChunkLength()).get()) {
+        throw cRuntimeError("Sctp Serializer error: writtenBytes (%lu) != msgLength(%lu) in message (%s)%s",
+                writtenBytes, (unsigned long)B(msg->getChunkLength()).get(), msg->getClassName(), msg->getFullName());
     }
-    stream.writeBytes((uint8_t *)&buffer, B(writtenbytes));
+    stream.writeBytes(buffer, B(writtenBytes));
 }
 
 void SctpHeaderSerializer::hmacSha1(const uint8 *buf, uint32 buflen, const uint8 *key, uint32 keylen, uint8 *digest)
@@ -1135,9 +1224,13 @@ const Ptr<Chunk> SctpHeaderSerializer::deserialize(MemoryInputStream& stream) co
     auto dest = makeShared<SctpHeader>();
 
     struct common_header *common_header = (struct common_header *)((void *)&buffer);
-    int32 tempChecksum = common_header->checksum;
+    uint32_t tempChecksum = common_header->checksum;
     common_header->checksum = 0;
-    int32 chksum = SctpChecksum::checksum((unsigned char *)common_header, bufsize);
+    buffer[8] = 0;
+    buffer[9] = 0;
+    buffer[10] = 0;
+    buffer[11] = 0;
+    uint32_t chksum = SctpChecksum::checksum(&buffer, bufsize);
     common_header->checksum = tempChecksum;
 
     const unsigned char *chunks = (unsigned char *)(buffer + sizeof(struct common_header));
@@ -1171,7 +1264,7 @@ const Ptr<Chunk> SctpHeaderSerializer::deserialize(MemoryInputStream& stream) co
                 const struct data_chunk *dc = (struct data_chunk *)(chunks + chunkPtr);
                 EV_DETAIL << "cLen=" << cLen << "\n";
                 if (cLen == 0)
-                    throw cRuntimeError("Incoming SCTP packet contains data chunk with length==0");
+                    throw new cRuntimeError("Incoming SCTP packet contains data chunk with length==0");
                 SctpDataChunk *chunk = new SctpDataChunk("DATA");
                 chunk->setSctpChunkType(chunkType);
                 chunk->setUBit(dc->flags & UNORDERED_BIT);
@@ -1358,7 +1451,7 @@ const Ptr<Chunk> SctpHeaderSerializer::deserialize(MemoryInputStream& stream) co
                             }
 
                             default: {
-                                EV_INFO << "Unknown Sctp INIT parameter type " << paramType << "\n";
+                                EV_INFO << "ExtInterface: Unknown Sctp INIT parameter type " << paramType << "\n";
                                 uint16 skip = (paramType & 0x8000) >> 15;
                                 if (skip == 0)
                                     stopProcessing = true;
@@ -1569,7 +1662,7 @@ const Ptr<Chunk> SctpHeaderSerializer::deserialize(MemoryInputStream& stream) co
                             }
 
                             default: {
-                                EV_INFO << "Unknown SCTP INIT-ACK parameter type " << paramType << "\n";
+                                EV_INFO << "ExtInterface: Unknown SCTP INIT-ACK parameter type " << paramType << "\n";
                                 uint16 skip = (paramType & 0x8000) >> 15;
                                 if (skip == 0)
                                     stopProcessing = true;
@@ -1914,7 +2007,7 @@ const Ptr<Chunk> SctpHeaderSerializer::deserialize(MemoryInputStream& stream) co
                     parcounter++;
                     if (ntohs(ipv4addr->type) != INIT_PARAM_IPV4) {
                         if (parlen == 0)
-                            throw cRuntimeError("ParamLen == 0.");
+                            throw new cRuntimeError("ParamLen == 0.");
                         continue;
                     }
                     else {
@@ -1969,8 +2062,8 @@ const Ptr<Chunk> SctpHeaderSerializer::deserialize(MemoryInputStream& stream) co
                             }
 
                             default:
-                                EV << "Unknown Sctp parameter type " << paramType;
-                                /*throw cRuntimeError("TODO: unknown parametertype in incoming packet from external interface! Implement it!");*/
+                                EV << "ExtInterface: Unknown Sctp parameter type " << paramType;
+                                /*throw new cRuntimeError("TODO: unknown parametertype in incoming packet from external interface! Implement it!");*/
                                 break;
                         }
                         parptr += ADD_PADDING(paramLength);
@@ -2020,7 +2113,7 @@ const Ptr<Chunk> SctpHeaderSerializer::deserialize(MemoryInputStream& stream) co
                             }
 
                             default:
-                                EV << "Unknown Sctp parameter type " << paramType;
+                                EV << "ExtInterface: Unknown Sctp parameter type " << paramType;
                                 break;
                         }
                         parptr += ADD_PADDING(paramLength);
@@ -2207,6 +2300,1050 @@ void SctpHeaderSerializer::calculateSharedKey()
             sharedKey[i + sizePeerKeyVector] = keyVector[i];
     }
 }
+
+uint8* SctpHeaderSerializer::serializeSctpHeaderIntoBuffer(const Ptr<const SctpHeader>& msg, uint32& writtenBytes)
+{
+    uint8_t* buffer = new uint8_t[MAXBUFLEN];
+    // int32 size_chunk = sizeof(struct chunk);
+
+    int authstart = 0;
+    struct common_header *ch = (struct common_header *)(buffer);
+    writtenBytes = sizeof(struct common_header);
+
+    // fill SCTP common header structure
+    ch->source_port = htons(msg->getSrcPort());
+    ch->destination_port = htons(msg->getDestPort());
+    ch->verification_tag = htonl(msg->getVTag());
+    ch->checksum = msg->getCrc();
+
+    // SCTP chunks:
+    int32 noChunks = msg->getSctpChunksArraySize();
+    for (int32 cc = 0; cc < noChunks; cc++) {
+        SctpChunk *chunk = const_cast<SctpChunk *>(check_and_cast<const SctpChunk *>((msg)->getSctpChunks(cc)));
+        unsigned char chunkType = chunk->getSctpChunkType();
+        switch (chunkType) {
+            case DATA: {
+                SctpDataChunk *dataChunk = check_and_cast<SctpDataChunk *>(chunk);
+                struct data_chunk *dc = (struct data_chunk *)(buffer + writtenBytes);    // append data to buffer
+                unsigned char flags = 0;
+
+                // fill buffer with data from SCTP data chunk structure
+                dc->type = dataChunk->getSctpChunkType();
+                if (dataChunk->getUBit())
+                    flags |= UNORDERED_BIT;
+                if (dataChunk->getBBit())
+                    flags |= BEGIN_BIT;
+                if (dataChunk->getEBit())
+                    flags |= END_BIT;
+                if (dataChunk->getIBit())
+                    flags |= I_BIT;
+                dc->flags = flags;
+                dc->length = htons(dataChunk->getByteLength());
+                dc->tsn = htonl(dataChunk->getTsn());
+                dc->sid = htons(dataChunk->getSid());
+                dc->ssn = htons(dataChunk->getSsn());
+                dc->ppi = htonl(dataChunk->getPpid());
+                writtenBytes += SCTP_DATA_CHUNK_LENGTH;
+                SctpSimpleMessage *smsg = check_and_cast<SctpSimpleMessage *>(dataChunk->getEncapsulatedPacket());
+                const uint32 datalen = smsg->getDataLen();
+                if (smsg->getDataArraySize() >= datalen) {
+                    for (uint32 i = 0; i < datalen; i++) {
+                        dc->user_data[i] = smsg->getData(i);
+                    }
+                }
+                writtenBytes += ADD_PADDING(datalen);
+                break;
+            }
+
+            case INIT: {
+
+                // source data from internal struct:
+                SctpInitChunk *initChunk = check_and_cast<SctpInitChunk *>(chunk);
+                // destination is send buffer:
+                struct init_chunk *ic = (struct init_chunk *)(buffer + writtenBytes);    // append data to buffer
+                uint16_t padding_last = 0;
+
+                // fill buffer with data from Sctp init chunk structure
+                ic->type = initChunk->getSctpChunkType();
+                ic->flags = 0;    // no flags available in this type of SctpChunk
+                ic->initiate_tag = htonl(initChunk->getInitTag());
+                ic->a_rwnd = htonl(initChunk->getA_rwnd());
+                ic->mos = htons(initChunk->getNoOutStreams());
+                ic->mis = htons(initChunk->getNoInStreams());
+                ic->initial_tsn = htonl(initChunk->getInitTsn());
+                int32 parPtr = 0;
+                // Var.-Len. Parameters
+                if (initChunk->getIpv4Supported() || initChunk->getIpv6Supported()) {
+                    struct supported_address_types_parameter *sup_addr = (struct supported_address_types_parameter *)(((unsigned char *)ic) + sizeof(struct init_chunk) + parPtr);
+                    sup_addr->type = htons(INIT_SUPPORTED_ADDRESS);
+                    sup_addr->length = htons(8);
+                    if (initChunk->getIpv4Supported() && initChunk->getIpv6Supported()) {
+                        sup_addr->address_type_1 = htons(INIT_PARAM_IPV4);
+                        sup_addr->address_type_2 = htons(INIT_PARAM_IPV6);
+                    } else if (initChunk->getIpv4Supported()) {
+                        sup_addr->address_type_1 = htons(INIT_PARAM_IPV4);
+                        sup_addr->address_type_2 = 0;
+                    } else {
+                        sup_addr->address_type_1 = htons(INIT_PARAM_IPV6);
+                        sup_addr->address_type_2 = 0;
+                    }
+                    parPtr += 8;
+                }
+                if (initChunk->getForwardTsn() == true) {
+                    struct forward_tsn_supported_parameter *forward = (struct forward_tsn_supported_parameter *)(((unsigned char *)ic) + sizeof(struct init_chunk) + parPtr);
+                    forward->type = htons(FORWARD_TSN_SUPPORTED_PARAMETER);
+                    forward->length = htons(4);
+                    parPtr += 4;
+                }
+                int32 numaddr = initChunk->getAddressesArraySize();
+                for (int32 i = 0; i < numaddr; i++) {
+#ifdef WITH_IPv4
+                    if (initChunk->getAddresses(i).getType() == L3Address::IPv4) {
+                        struct init_ipv4_address_parameter *ipv4addr = (struct init_ipv4_address_parameter *)(((unsigned char *)ic) + sizeof(struct init_chunk) + parPtr);
+                        ipv4addr->type = htons(INIT_PARAM_IPV4);
+                        ipv4addr->length = htons(8);
+                        ipv4addr->address = htonl(initChunk->getAddresses(i).toIpv4().getInt());
+                        parPtr += sizeof(struct init_ipv4_address_parameter);
+                    }
+#endif // ifdef WITH_IPv4
+#ifdef WITH_IPv6
+                    if (initChunk->getAddresses(i).getType() == L3Address::IPv6) {
+                        struct init_ipv6_address_parameter *ipv6addr = (struct init_ipv6_address_parameter *)(((unsigned char *)ic) + sizeof(struct init_chunk) + parPtr);
+                        ipv6addr->type = htons(INIT_PARAM_IPV6);
+                        ipv6addr->length = htons(20);
+                        for (int32 j = 0; j < 4; j++) {
+                            ipv6addr->address[j] = initChunk->getAddresses(i).toIpv6().words()[j];
+                        }
+                        parPtr += sizeof(struct init_ipv6_address_parameter);
+                    }
+#endif // ifdef WITH_IPv6
+                }
+                int chunkcount = initChunk->getSepChunksArraySize();
+                if (chunkcount > 0) {
+                    struct supported_extensions_parameter *supext = (struct supported_extensions_parameter *)(((unsigned char *)ic) + sizeof(struct init_chunk) + parPtr);
+                    supext->type = htons(SUPPORTED_EXTENSIONS);
+                    int chunkcount = initChunk->getSepChunksArraySize();
+                    supext->length = htons(sizeof(struct supported_extensions_parameter) + chunkcount);
+                    for (int i = 0; i < chunkcount; i++) {
+                        supext->chunk_type[i] = initChunk->getSepChunks(i);
+                    }
+                    parPtr += sizeof(struct supported_extensions_parameter) + chunkcount;
+                    padding_last = ADD_PADDING(sizeof(struct supported_extensions_parameter) + chunkcount) - (sizeof(struct supported_extensions_parameter) + chunkcount);
+                }
+                if (initChunk->getHmacTypesArraySize() > 0) {
+                    if (padding_last > 0) {
+                        parPtr += padding_last;
+                        padding_last = 0;
+                    }
+                    struct random_parameter *random = (struct random_parameter *)(((unsigned char *)ic) + sizeof(struct init_chunk) + parPtr);
+                    random->type = htons(RANDOM);
+                    unsigned char *vector = (unsigned char *)malloc(64);
+                    struct random_parameter *rp = (struct random_parameter *)((unsigned char *)vector);
+                    rp->type = htons(RANDOM);
+                    int randomsize = initChunk->getRandomArraySize();
+                    for (int i = 0; i < randomsize; i++) {
+                        random->random[i] = (initChunk->getRandom(i));
+                        rp->random[i] = (initChunk->getRandom(i));
+                    }
+                    parPtr += ADD_PADDING(sizeof(struct random_parameter) + randomsize);
+                    random->length = htons(sizeof(struct random_parameter) + randomsize);
+                    rp->length = htons(sizeof(struct random_parameter) + randomsize);
+                    sizeKeyVector = sizeof(struct random_parameter) + randomsize;
+                    struct tlv *chunks = (struct tlv *)(((unsigned char *)ic) + sizeof(struct init_chunk) + parPtr);
+                    struct tlv *cp = (struct tlv *)(((unsigned char *)vector) + sizeKeyVector);
+
+                    chunks->type = htons(CHUNKS);
+                    cp->type = htons(CHUNKS);
+                    int chunksize = initChunk->getSctpChunkTypesArraySize();
+                    for (int i = 0; i < chunksize; i++) {
+                        chunks->value[i] = (initChunk->getSctpChunkTypes(i));
+                        cp->value[i] = (initChunk->getSctpChunkTypes(i));
+                    }
+                    chunks->length = htons(sizeof(struct tlv) + chunksize);
+                    cp->length = htons(sizeof(struct tlv) + chunksize);
+                    sizeKeyVector += sizeof(struct tlv) + chunksize;
+                    parPtr += ADD_PADDING(sizeof(struct tlv) + chunksize);
+                    struct hmac_algo *hmac = (struct hmac_algo *)(((unsigned char *)ic) + sizeof(struct init_chunk) + parPtr);
+                    struct hmac_algo *hp = (struct hmac_algo *)(((unsigned char *)vector) + sizeKeyVector);
+                    hmac->type = htons(HMAC_ALGO);
+                    hp->type = htons(HMAC_ALGO);
+                    hmac->length = htons(4 + 2 * initChunk->getHmacTypesArraySize());
+                    hp->length = htons(4 + 2 * initChunk->getHmacTypesArraySize());
+                    sizeKeyVector += (4 + 2 * initChunk->getHmacTypesArraySize());
+                    for (unsigned int i = 0; i < initChunk->getHmacTypesArraySize(); i++) {
+                        hmac->ident[i] = htons(initChunk->getHmacTypes(i));
+                        hp->ident[i] = htons(initChunk->getHmacTypes(i));
+                    }
+                    parPtr += ADD_PADDING(4 + 2 * initChunk->getHmacTypesArraySize());
+                    padding_last = ADD_PADDING(4 + 2 * initChunk->getHmacTypesArraySize()) - (4 + 2 * initChunk->getHmacTypesArraySize());
+                    parPtr -= padding_last;
+
+                    for (unsigned int k = 0; k < sizeKeyVector; k++) {
+                        keyVector[k] = vector[k];
+                    }
+                    free(vector);
+                }
+
+                ic->length = htons(SCTP_INIT_CHUNK_LENGTH + parPtr);
+                writtenBytes += SCTP_INIT_CHUNK_LENGTH + parPtr + padding_last;
+                break;
+            }
+
+            case INIT_ACK: {
+                SctpInitAckChunk *initAckChunk = check_and_cast<SctpInitAckChunk *>(chunk);
+                // destination is send buffer:
+                struct init_ack_chunk *iac = (struct init_ack_chunk *)(buffer + writtenBytes);    // append data to buffer
+                // fill buffer with data from Sctp init ack chunk structure
+                iac->type = initAckChunk->getSctpChunkType();
+                iac->flags = 0;    // no flags available in this type of SctpChunk
+                iac->initiate_tag = htonl(initAckChunk->getInitTag());
+                iac->a_rwnd = htonl(initAckChunk->getA_rwnd());
+                iac->mos = htons(initAckChunk->getNoOutStreams());
+                iac->mis = htons(initAckChunk->getNoInStreams());
+                iac->initial_tsn = htonl(initAckChunk->getInitTsn());
+                // Var.-Len. Parameters
+                int32 parPtr = 0;
+                if (initAckChunk->getIpv4Supported() || initAckChunk->getIpv6Supported()) {
+                    struct supported_address_types_parameter *sup_addr = (struct supported_address_types_parameter *)(((unsigned char *)iac) + sizeof(struct init_chunk) + parPtr);
+                    sup_addr->type = htons(INIT_SUPPORTED_ADDRESS);
+                    sup_addr->length = htons(8);
+                    if (initAckChunk->getIpv4Supported() && initAckChunk->getIpv6Supported()) {
+                        sup_addr->address_type_1 = htons(INIT_PARAM_IPV4);
+                        sup_addr->address_type_2 = htons(INIT_PARAM_IPV6);
+                    } else if (initAckChunk->getIpv4Supported()) {
+                        sup_addr->address_type_1 = htons(INIT_PARAM_IPV4);
+                        sup_addr->address_type_2 = 0;
+                    } else {
+                        sup_addr->address_type_1 = htons(INIT_PARAM_IPV6);
+                        sup_addr->address_type_2 = 0;
+                    }
+                    parPtr += 8;
+                }
+                if (initAckChunk->getForwardTsn() == true) {
+                    struct forward_tsn_supported_parameter *forward = (struct forward_tsn_supported_parameter *)(((unsigned char *)iac) + sizeof(struct init_chunk) + parPtr);
+                    forward->type = htons(FORWARD_TSN_SUPPORTED_PARAMETER);
+                    forward->length = htons(4);
+                    parPtr += 4;
+                }
+
+                int32 numaddr = initAckChunk->getAddressesArraySize();
+                for (int32 i = 0; i < numaddr; i++) {
+#ifdef WITH_IPv4
+                    if (initAckChunk->getAddresses(i).getType() == L3Address::IPv4) {
+                        struct init_ipv4_address_parameter *ipv4addr = (struct init_ipv4_address_parameter *)(((unsigned char *)iac) + sizeof(struct init_chunk) + parPtr);
+                        ipv4addr->type = htons(INIT_PARAM_IPV4);
+                        ipv4addr->length = htons(8);
+                        ipv4addr->address = htonl(initAckChunk->getAddresses(i).toIpv4().getInt());
+                        parPtr += sizeof(struct init_ipv4_address_parameter);
+                    }
+#endif // ifdef WITH_IPv4
+#ifdef WITH_IPv6
+                    if (initAckChunk->getAddresses(i).getType() == L3Address::IPv6) {
+                        struct init_ipv6_address_parameter *ipv6addr = (struct init_ipv6_address_parameter *)(((unsigned char *)iac) + sizeof(struct init_chunk) + parPtr);
+                        ipv6addr->type = htons(INIT_PARAM_IPV6);
+                        ipv6addr->length = htons(20);
+                        for (int j = 0; j < 4; j++) {
+                            ipv6addr->address[j] = htonl(initAckChunk->getAddresses(i).toIpv6().words()[j]);
+                        }
+                        parPtr += sizeof(struct init_ipv6_address_parameter);
+                    }
+#endif // ifdef WITH_IPv6
+                }
+                int chunkcount = initAckChunk->getSepChunksArraySize();
+                if (chunkcount > 0) {
+                    struct supported_extensions_parameter *supext = (struct supported_extensions_parameter *)(((unsigned char *)iac) + sizeof(struct init_chunk) + parPtr);
+                    supext->type = htons(SUPPORTED_EXTENSIONS);
+                    int chunkcount = initAckChunk->getSepChunksArraySize();
+                    supext->length = htons(sizeof(struct supported_extensions_parameter) + chunkcount);
+                    for (int i = 0; i < chunkcount; i++) {
+                        supext->chunk_type[i] = initAckChunk->getSepChunks(i);
+                    }
+                    parPtr += ADD_PADDING(sizeof(struct supported_extensions_parameter) + chunkcount);
+                }
+                uint32 uLen = initAckChunk->getUnrecognizedParametersArraySize();
+                if (uLen > 0) {
+                    int32 k = 0;
+                    uint32 pLen = 0;
+                    while (uLen > 0) {
+                        struct tlv *unknown = (struct tlv *)(((unsigned char *)iac) + sizeof(struct init_chunk) + parPtr);
+                        unknown->type = htons(UNRECOGNIZED_PARAMETER);
+                        pLen = initAckChunk->getUnrecognizedParameters(k + 2) * 16 + initAckChunk->getUnrecognizedParameters(k + 3);
+                        unknown->length = htons(pLen + 4);
+                        for (uint32 i = 0; i < ADD_PADDING(pLen); i++, k++)
+                            unknown->value[i] = initAckChunk->getUnrecognizedParameters(k);
+                        parPtr += ADD_PADDING(pLen + 4);
+                        uLen -= ADD_PADDING(pLen);
+                    }
+                }
+                if (initAckChunk->getHmacTypesArraySize() > 0) {
+                    unsigned int sizeVector;
+                    struct random_parameter *random = (struct random_parameter *)(((unsigned char *)iac) + sizeof(struct init_chunk) + parPtr);
+                    random->type = htons(RANDOM);
+                    int randomsize = initAckChunk->getRandomArraySize();
+                    unsigned char *vector = (unsigned char *)malloc(64);
+                    struct random_parameter *rp = (struct random_parameter *)((unsigned char *)vector);
+                    rp->type = htons(RANDOM);
+                    for (int i = 0; i < randomsize; i++) {
+                        random->random[i] = (initAckChunk->getRandom(i));
+                        rp->random[i] = (initAckChunk->getRandom(i));
+                    }
+                    parPtr += ADD_PADDING(sizeof(struct random_parameter) + randomsize);
+                    random->length = htons(sizeof(struct random_parameter) + randomsize);
+                    rp->length = htons(sizeof(struct random_parameter) + randomsize);
+                    sizeVector = ntohs(rp->length);
+                    struct tlv *chunks = (struct tlv *)(((unsigned char *)iac) + sizeof(struct init_chunk) + parPtr);
+                    struct tlv *cp = (struct tlv *)(((unsigned char *)vector) + 36);
+                    chunks->type = htons(CHUNKS);
+                    cp->type = htons(CHUNKS);
+                    int chunksize = initAckChunk->getSctpChunkTypesArraySize();
+                    for (int i = 0; i < chunksize; i++) {
+                        chunks->value[i] = (initAckChunk->getSctpChunkTypes(i));
+                        cp->value[i] = (initAckChunk->getSctpChunkTypes(i));
+                    }
+                    chunks->length = htons(sizeof(struct tlv) + chunksize);
+                    cp->length = htons(sizeof(struct tlv) + chunksize);
+                    sizeVector += sizeof(struct tlv) + chunksize;
+                    parPtr += ADD_PADDING(sizeof(struct tlv) + chunksize);
+                    struct hmac_algo *hmac = (struct hmac_algo *)(((unsigned char *)iac) + sizeof(struct init_chunk) + parPtr);
+                    struct hmac_algo *hp = (struct hmac_algo *)(((unsigned char *)(vector)) + 36 + sizeof(struct tlv) + chunksize);
+                    hmac->type = htons(HMAC_ALGO);
+                    hp->type = htons(HMAC_ALGO);
+                    hmac->length = htons(4 + 2 * initAckChunk->getHmacTypesArraySize());
+                    hp->length = htons(4 + 2 * initAckChunk->getHmacTypesArraySize());
+                    sizeVector += (4 + 2 * initAckChunk->getHmacTypesArraySize());
+                    for (unsigned int i = 0; i < initAckChunk->getHmacTypesArraySize(); i++) {
+                        hmac->ident[i] = htons(initAckChunk->getHmacTypes(i));
+                        hp->ident[i] = htons(initAckChunk->getHmacTypes(i));
+                    }
+                    parPtr += ADD_PADDING(4 + 2 * initAckChunk->getHmacTypesArraySize());
+                    for (unsigned int k = 0; k < min(sizeVector, 64); k++) {
+                        if (sizeKeyVector != 0)
+                            peerKeyVector[k] = vector[k];
+                        else
+                            keyVector[k] = vector[k];
+                    }
+
+                    if (sizeKeyVector != 0)
+                        sizePeerKeyVector = sizeVector;
+                    else
+                        sizeKeyVector = sizeVector;
+                 /* ToDo */
+                 //   calculateSharedKey();
+                    free(vector);
+                }
+                int32 cookielen = initAckChunk->getCookieArraySize();
+                if (cookielen == 0) {
+                    SctpCookie *stateCookie = (SctpCookie *)(initAckChunk->getStateCookie());
+                  //  SctpCookie *stateCookie = check_and_cast<SctpCookie *>(initAckChunk->getStateCookie());
+                    struct init_cookie_parameter *cookie = (struct init_cookie_parameter *)(((unsigned char *)iac) + sizeof(struct init_chunk) + parPtr);
+                    cookie->type = htons(INIT_PARAM_COOKIE);
+                    cookie->length = htons(SCTP_COOKIE_LENGTH + 4);
+                    cookie->creationTime = htonl((uint32)stateCookie->getCreationTime().dbl());
+                    cookie->localTag = htonl(stateCookie->getLocalTag());
+                    cookie->peerTag = htonl(stateCookie->getPeerTag());
+                    for (int32 i = 0; i < 32; i++) {
+                        cookie->localTieTag[i] = stateCookie->getLocalTieTag(i);
+                        cookie->peerTieTag[i] = stateCookie->getPeerTieTag(i);
+                    }
+                    parPtr += (SCTP_COOKIE_LENGTH + 4);
+                } else {
+                    struct tlv *cookie = (struct tlv *)(((unsigned char *)iac) + sizeof(struct init_chunk) + parPtr);
+                    cookie->type = htons(INIT_PARAM_COOKIE);
+                    cookie->length = htons(cookielen + 4);
+                    for (int32 i = 0; i < cookielen; i++)
+                        cookie->value[i] = initAckChunk->getCookie(i);
+                    parPtr += cookielen + 4;
+                }
+                iac->length = htons(SCTP_INIT_CHUNK_LENGTH + parPtr);
+                writtenBytes += SCTP_INIT_CHUNK_LENGTH + parPtr;
+                break;
+            }
+
+            case SACK: {
+                SctpSackChunk *sackChunk = check_and_cast<SctpSackChunk *>(chunk);
+
+                // destination is send buffer:
+                struct sack_chunk *sac = (struct sack_chunk *)(buffer + writtenBytes);    // append data to buffer
+                writtenBytes += sackChunk->getByteLength();
+
+                // fill buffer with data from Sctp init ack chunk structure
+                sac->type = sackChunk->getSctpChunkType();
+                sac->flags = 0;
+                sac->length = htons(sackChunk->getByteLength());
+                uint32 cumtsnack = sackChunk->getCumTsnAck();
+                sac->cum_tsn_ack = htonl(cumtsnack);
+                sac->a_rwnd = htonl(sackChunk->getA_rwnd());
+                sac->nr_of_gaps = htons(sackChunk->getNumGaps());
+                sac->nr_of_dups = htons(sackChunk->getNumDupTsns());
+
+                // GAPs and Dup. TSNs:
+                int16 numgaps = sackChunk->getNumGaps();
+                int16 numdups = sackChunk->getNumDupTsns();
+                for (int16 i = 0; i < numgaps; i++) {
+                    struct sack_gap *gap = (struct sack_gap *)(((unsigned char *)sac) + sizeof(struct sack_chunk) + i * sizeof(struct sack_gap));
+                    gap->start = htons(sackChunk->getGapStart(i) - cumtsnack);
+                    gap->stop = htons(sackChunk->getGapStop(i) - cumtsnack);
+                }
+                for (int16 i = 0; i < numdups; i++) {
+                    struct sack_duptsn *dup = (struct sack_duptsn *)(((unsigned char *)sac) + sizeof(struct sack_chunk) + numgaps * sizeof(struct sack_gap) + i * sizeof(struct sack_duptsn));
+                    dup->tsn = htonl(sackChunk->getDupTsns(i));
+                }
+                break;
+            }
+
+            case NR_SACK: {
+                SctpSackChunk *sackChunk = check_and_cast<SctpSackChunk *>(chunk);
+
+                // destination is send buffer:
+                struct nr_sack_chunk *sac = (struct nr_sack_chunk *)(buffer + writtenBytes);    // append data to buffer
+                writtenBytes += sackChunk->getByteLength();
+
+                // fill buffer with data from Sctp init ack chunk structure
+                sac->type = sackChunk->getSctpChunkType();
+                sac->flags = 0;
+                sac->length = htons(sackChunk->getByteLength());
+                uint32 cumtsnack = sackChunk->getCumTsnAck();
+                sac->cum_tsn_ack = htonl(cumtsnack);
+                sac->a_rwnd = htonl(sackChunk->getA_rwnd());
+                sac->nr_of_gaps = htons(sackChunk->getNumGaps());
+                sac->nr_of_dups = htons(sackChunk->getNumDupTsns());
+
+                // GAPs and Dup. TSNs:
+                int16 numgaps = sackChunk->getNumGaps();
+                int16 numdups = sackChunk->getNumDupTsns();
+                int16 numnrgaps = 0;
+                for (int16 i = 0; i < numgaps; i++) {
+                    struct sack_gap *gap = (struct sack_gap *)(((unsigned char *)sac) + sizeof(struct nr_sack_chunk) + i * sizeof(struct sack_gap));
+                    gap->start = htons(sackChunk->getGapStart(i) - cumtsnack);
+                    gap->stop = htons(sackChunk->getGapStop(i) - cumtsnack);
+                }
+                sac->nr_of_nr_gaps = htons(sackChunk->getNumNrGaps());
+                sac->reserved = htons(0);
+                numnrgaps = sackChunk->getNumNrGaps();
+                for (int16 i = 0; i < numnrgaps; i++) {
+                    struct sack_gap *gap = (struct sack_gap *)(((unsigned char *)sac) + sizeof(struct nr_sack_chunk) + (numgaps + i) * sizeof(struct sack_gap));
+                    gap->start = htons(sackChunk->getNrGapStart(i) - cumtsnack);
+                    gap->stop = htons(sackChunk->getNrGapStop(i) - cumtsnack);
+                }
+                for (int16 i = 0; i < numdups; i++) {
+                    struct sack_duptsn *dup = (struct sack_duptsn *)(((unsigned char *)sac) + sizeof(struct nr_sack_chunk) + (numgaps + numnrgaps) * sizeof(struct sack_gap) + i * sizeof(sack_duptsn));
+                    dup->tsn = htonl(sackChunk->getDupTsns(i));
+                }
+                break;
+            }
+
+            case HEARTBEAT :
+                {
+                    SctpHeartbeatChunk *heartbeatChunk = check_and_cast<SctpHeartbeatChunk *>(chunk);
+
+                    // destination is send buffer:
+                    struct heartbeat_chunk *hbc = (struct heartbeat_chunk *)(buffer + writtenBytes);    // append data to buffer
+
+                    // fill buffer with data from Sctp init ack chunk structure
+                    hbc->type = heartbeatChunk->getSctpChunkType();
+
+                    // deliver info:
+                    struct heartbeat_info *hbi = (struct heartbeat_info *)(((unsigned char *)hbc) + sizeof(struct heartbeat_chunk));
+                    L3Address addr = heartbeatChunk->getRemoteAddr();
+                    simtime_t time = heartbeatChunk->getTimeField();
+                    int32 infolen = 0;
+#ifdef WITH_IPv4
+                    if (addr.getType() == L3Address::IPv4) {
+                        infolen = sizeof(addr.toIpv4().getInt()) + sizeof(uint32);
+                        hbi->type = htons(1);    // mandatory
+                        hbi->length = htons(infolen + 4);
+                        struct init_ipv4_address_parameter *ipv4addr = (struct init_ipv4_address_parameter *)(((unsigned char *)hbc) + 8);
+                        ipv4addr->type = htons(INIT_PARAM_IPV4);
+                        ipv4addr->length = htons(8);
+                        ipv4addr->address = htonl(addr.toIpv4().getInt());
+                        HBI_ADDR(hbi).v4addr = *ipv4addr;
+                    }
+#endif // ifdef WITH_IPv4
+#ifdef WITH_IPv6
+                    if (addr.getType() == L3Address::IPv6) {
+                        infolen = 20 + sizeof(uint32);
+                        hbi->type = htons(1);    // mandatory
+                        hbi->length = htons(infolen + 4);
+                        struct init_ipv6_address_parameter *ipv6addr = (struct init_ipv6_address_parameter *)(((unsigned char *)hbc) + 8);
+                        ipv6addr->type = htons(INIT_PARAM_IPV6);
+                        ipv6addr->length = htons(20);
+                        for (int32 j = 0; j < 4; j++) {
+                            ipv6addr->address[j] = htonl(addr.toIpv6().words()[j]);
+                        }
+                        HBI_ADDR(hbi).v6addr = *ipv6addr;
+                    }
+#endif // ifdef WITH_IPv6
+                    ASSERT(infolen != 0);
+                    HBI_TIME(hbi) = htonl((uint32)time.dbl());
+                    hbc->length = htons(sizeof(struct heartbeat_chunk) + infolen + 4);
+                    writtenBytes += sizeof(struct heartbeat_chunk) + infolen + 4;
+                    break;
+                }
+
+            case HEARTBEAT_ACK :
+                {
+                    SctpHeartbeatAckChunk *heartbeatAckChunk = check_and_cast<SctpHeartbeatAckChunk *>(chunk);
+
+                    // destination is send buffer:
+                    struct heartbeat_ack_chunk *hbac = (struct heartbeat_ack_chunk *)(buffer + writtenBytes);    // append data to buffer
+
+                    // fill buffer with data from Sctp init ack chunk structure
+                    hbac->type = heartbeatAckChunk->getSctpChunkType();
+
+                    // deliver info:
+                    struct heartbeat_info *hbi = (struct heartbeat_info *)(((unsigned char *)hbac) + sizeof(struct heartbeat_ack_chunk));
+                    int32 infolen = heartbeatAckChunk->getInfoArraySize();
+                    hbi->type = htons(1);    //mandatory
+                    if (infolen > 0) {
+                        hbi->length = htons(infolen + 4);
+                        for (int32 i = 0; i < infolen; i++) {
+                            HBI_INFO(hbi)[i] = heartbeatAckChunk->getInfo(i);
+                        }
+                    }
+                    else {
+                        L3Address addr = heartbeatAckChunk->getRemoteAddr();
+                        simtime_t time = heartbeatAckChunk->getTimeField();
+
+#ifdef WITH_IPv4
+                        if (addr.getType() == L3Address::IPv4) {
+                            infolen = sizeof(addr.toIpv4().getInt()) + sizeof(uint32);
+                            hbi->type = htons(1);    // mandatory
+                            hbi->length = htons(infolen + 4);
+                            struct init_ipv4_address_parameter *ipv4addr = (struct init_ipv4_address_parameter *)(((unsigned char *)hbac) + 8);
+                            ipv4addr->type = htons(INIT_PARAM_IPV4);
+                            ipv4addr->length = htons(8);
+                            ipv4addr->address = htonl(addr.toIpv4().getInt());
+                            HBI_ADDR(hbi).v4addr = *ipv4addr;
+                        }
+#endif // ifdef WITH_IPv4
+#ifdef WITH_IPv6
+                        if (addr.getType() == L3Address::IPv6) {
+                            infolen = 20 + sizeof(uint32);
+                            hbi->type = htons(1);    // mandatory
+                            hbi->length = htons(infolen + 4);
+                            struct init_ipv6_address_parameter *ipv6addr = (struct init_ipv6_address_parameter *)(((unsigned char *)hbac) + 8);
+                            ipv6addr->type = htons(INIT_PARAM_IPV6);
+                            ipv6addr->length = htons(20);
+                            for (int32 j = 0; j < 4; j++) {
+                                ipv6addr->address[j] = htonl(addr.toIpv6().words()[j]);
+                            }
+                            HBI_ADDR(hbi).v6addr = *ipv6addr;
+                        }
+#endif // ifdef WITH_IPv6
+                        HBI_TIME(hbi) = htonl((uint32)time.dbl());
+                    }
+                    hbac->length = htons(sizeof(struct heartbeat_ack_chunk) + infolen + 4);
+                    writtenBytes += sizeof(struct heartbeat_ack_chunk) + infolen + 4;
+
+                    break;
+                }
+
+            case ABORT: {
+                SctpAbortChunk *abortChunk = check_and_cast<SctpAbortChunk *>(chunk);
+
+                // destination is send buffer:
+                struct abort_chunk *ac = (struct abort_chunk *)(buffer + writtenBytes);    // append data to buffer
+                writtenBytes += (abortChunk->getByteLength());
+
+                // fill buffer with data from Sctp init ack chunk structure
+                ac->type = abortChunk->getSctpChunkType();
+                unsigned char flags = 0;
+                if (abortChunk->getT_Bit())
+                    flags |= T_BIT;
+                ac->flags = flags;
+                ac->length = htons(abortChunk->getByteLength());
+                break;
+            }
+
+            case COOKIE_ECHO: {
+                SctpCookieEchoChunk *cookieChunk = check_and_cast<SctpCookieEchoChunk *>(chunk);
+
+                struct cookie_echo_chunk *cec = (struct cookie_echo_chunk *)(buffer + writtenBytes);
+
+                cec->type = cookieChunk->getSctpChunkType();
+                cec->flags = 0;    // no flags available in this type of SctpChunk
+                cec->length = htons(cookieChunk->getByteLength());
+                int32 cookielen = cookieChunk->getCookieArraySize();
+                if (cookielen > 0) {
+                    for (int32 i = 0; i < cookielen; i++)
+                        cec->state_cookie[i] = cookieChunk->getCookie(i);
+                }
+                else {
+                    SctpCookie *stateCookie = (SctpCookie *)(cookieChunk->getStateCookie());
+                    struct cookie_parameter *cookie = (struct cookie_parameter *)(buffer + writtenBytes + 4);
+                    cookie->creationTime = htonl((uint32)stateCookie->getCreationTime().dbl());
+                    cookie->localTag = htonl(stateCookie->getLocalTag());
+                    cookie->peerTag = htonl(stateCookie->getPeerTag());
+                    for (int32 i = 0; i < 32; i++) {
+                        cookie->localTieTag[i] = stateCookie->getLocalTieTag(i);
+                        cookie->peerTieTag[i] = stateCookie->getPeerTieTag(i);
+                    }
+                }
+                uint32_t paddingEndPos = writtenBytes + ADD_PADDING(cookieChunk->getByteLength());
+                writtenBytes += cookieChunk->getByteLength();
+                while (writtenBytes < paddingEndPos)
+                    buffer[writtenBytes++] = 0;
+                uint32 uLen = cookieChunk->getUnrecognizedParametersArraySize();
+                if (uLen > 0) {
+                    struct error_chunk *error = (struct error_chunk *)(buffer + writtenBytes);
+                    error->type = ERRORTYPE;
+                    error->flags = 0;
+                    int32 k = 0;
+                    uint32 pLen = 0;
+                    uint32 ecLen = SCTP_ERROR_CHUNK_LENGTH;
+                    uint32 ecParPtr = 0;
+                    while (uLen > 0) {
+                        struct tlv *unknown = (struct tlv *)(((unsigned char *)error) + sizeof(struct error_chunk) + ecParPtr);
+                        unknown->type = htons(UNRECOGNIZED_PARAMETER);
+                        pLen = cookieChunk->getUnrecognizedParameters(k + 2) * 16 + cookieChunk->getUnrecognizedParameters(k + 3);
+                        unknown->length = htons(pLen + 4);
+                        ecLen += pLen + 4;
+                        for (uint32 i = 0; i < ADD_PADDING(pLen); i++, k++)
+                            unknown->value[i] = cookieChunk->getUnrecognizedParameters(k);
+                        ecParPtr += ADD_PADDING(pLen + 4);
+                        uLen -= ADD_PADDING(pLen);
+                    }
+                    error->length = htons(ecLen);
+                    writtenBytes += SCTP_ERROR_CHUNK_LENGTH + ecParPtr;
+                }
+
+                break;
+            }
+
+            case COOKIE_ACK: {
+                SctpCookieAckChunk *cookieAckChunk = check_and_cast<SctpCookieAckChunk *>(chunk);
+
+                struct cookie_ack_chunk *cac = (struct cookie_ack_chunk *)(buffer + writtenBytes);
+                writtenBytes += cookieAckChunk->getByteLength();
+
+                cac->type = cookieAckChunk->getSctpChunkType();
+                cac->length = htons(cookieAckChunk->getByteLength());
+
+                break;
+            }
+
+            case SHUTDOWN: {
+                SctpShutdownChunk *shutdownChunk = check_and_cast<SctpShutdownChunk *>(chunk);
+
+                struct shutdown_chunk *sac = (struct shutdown_chunk *)(buffer + writtenBytes);
+                writtenBytes += shutdownChunk->getByteLength();
+
+                sac->type = shutdownChunk->getSctpChunkType();
+                sac->cumulative_tsn_ack = htonl(shutdownChunk->getCumTsnAck());
+                sac->length = htons(shutdownChunk->getByteLength());
+
+                break;
+            }
+
+            case SHUTDOWN_ACK: {
+                SctpShutdownAckChunk *shutdownAckChunk = check_and_cast<SctpShutdownAckChunk *>(chunk);
+
+                struct shutdown_ack_chunk *sac = (struct shutdown_ack_chunk *)(buffer + writtenBytes);
+                writtenBytes += shutdownAckChunk->getByteLength();
+
+                sac->type = shutdownAckChunk->getSctpChunkType();
+                sac->length = htons(shutdownAckChunk->getByteLength());
+
+                break;
+            }
+
+            case SHUTDOWN_COMPLETE: {
+                SctpShutdownCompleteChunk *shutdownCompleteChunk = check_and_cast<SctpShutdownCompleteChunk *>(chunk);
+
+                struct shutdown_complete_chunk *sac = (struct shutdown_complete_chunk *)(buffer + writtenBytes);
+                writtenBytes += shutdownCompleteChunk->getByteLength();
+
+                sac->type = shutdownCompleteChunk->getSctpChunkType();
+                sac->length = htons(shutdownCompleteChunk->getByteLength());
+                unsigned char flags = 0;
+                if (shutdownCompleteChunk->getTBit())
+                    flags |= T_BIT;
+                sac->flags = flags;
+                break;
+            }
+
+            case AUTH: {
+                SctpAuthenticationChunk *authChunk = check_and_cast<SctpAuthenticationChunk *>(chunk);
+                struct auth_chunk *auth = (struct auth_chunk *)(buffer + writtenBytes);
+                authstart = writtenBytes;
+                writtenBytes += SCTP_AUTH_CHUNK_LENGTH + SHA_LENGTH;
+                auth->type = authChunk->getSctpChunkType();
+                auth->flags = 0;
+                auth->length = htons(SCTP_AUTH_CHUNK_LENGTH + SHA_LENGTH);
+                auth->shared_key = htons(authChunk->getSharedKey());
+                auth->hmac_identifier = htons(authChunk->getHMacIdentifier());
+                for (int i = 0; i < SHA_LENGTH; i++)
+                    auth->hmac[i] = 0;
+                break;
+            }
+
+            case FORWARD_TSN: {
+                SctpForwardTsnChunk *forward = check_and_cast<SctpForwardTsnChunk *>(chunk);
+                struct forward_tsn_chunk *forw = (struct forward_tsn_chunk *)(buffer + writtenBytes);
+                writtenBytes += (forward->getByteLength());
+                forw->type = forward->getSctpChunkType();
+                forw->length = htons(forward->getByteLength());
+                forw->cum_tsn = htonl(forward->getNewCumTsn());
+                int streamPtr = 0;
+                for (unsigned int i = 0; i < forward->getSidArraySize(); i++) {
+                    struct forward_tsn_streams *str = (struct forward_tsn_streams *)(((unsigned char *)forw) + sizeof(struct forward_tsn_chunk) + streamPtr);
+                    str->sid = htons(forward->getSid(i));
+                    str->ssn = htons(forward->getSsn(i));
+                    streamPtr += 4;
+                }
+                break;
+            }
+
+            case ASCONF: {
+                SctpAsconfChunk *asconfChunk = check_and_cast<SctpAsconfChunk *>(chunk);
+                struct asconf_chunk *asconf = (struct asconf_chunk *)(buffer + writtenBytes);
+                writtenBytes += (asconfChunk->getByteLength());
+                asconf->type = asconfChunk->getSctpChunkType();
+                asconf->length = htons(asconfChunk->getByteLength());
+                asconf->serial = htonl(asconfChunk->getSerialNumber());
+                int parPtr = 0;
+                struct init_ipv4_address_parameter *ipv4addr = (struct init_ipv4_address_parameter *)(((unsigned char *)asconf) + sizeof(struct asconf_chunk) + parPtr);
+                ipv4addr->type = htons(INIT_PARAM_IPV4);
+                ipv4addr->length = htons(8);
+                ipv4addr->address = htonl(asconfChunk->getAddressParam().toIpv4().getInt());
+                parPtr += 8;
+                for (unsigned int i = 0; i < asconfChunk->getAsconfParamsArraySize(); i++) {
+                    SctpParameter *parameter = (SctpParameter *)(asconfChunk->getAsconfParams(i));
+                    switch (parameter->getParameterType()) {
+                        case ADD_IP_ADDRESS: {
+                            SctpAddIPParameter *addip = check_and_cast<SctpAddIPParameter *>(parameter);
+                            struct add_ip_parameter *ip = (struct add_ip_parameter *)(((unsigned char *)asconf) + sizeof(struct asconf_chunk) + parPtr);
+                            parPtr += 8;
+                            ip->type = htons(ADD_IP_ADDRESS);
+                            ip->correlation_id = htonl(addip->getRequestCorrelationId());
+                            struct init_ipv4_address_parameter *ipv4addr = (struct init_ipv4_address_parameter *)(((unsigned char *)asconf) + sizeof(struct asconf_chunk) + parPtr);
+                            ipv4addr->type = htons(INIT_PARAM_IPV4);
+                            ipv4addr->length = htons(8);
+                            ipv4addr->address = htonl(addip->getAddressParam().toIpv4().getInt());
+                            parPtr += 8;
+                            ip->length = htons(addip->getByteLength());
+                            break;
+                        }
+
+                        case DELETE_IP_ADDRESS: {
+                            SctpDeleteIPParameter *deleteip = check_and_cast<SctpDeleteIPParameter *>(parameter);
+                            struct add_ip_parameter *ip = (struct add_ip_parameter *)(((unsigned char *)asconf) + sizeof(struct asconf_chunk) + parPtr);
+                            parPtr += 8;
+                            ip->type = htons(DELETE_IP_ADDRESS);
+                            ip->correlation_id = htonl(deleteip->getRequestCorrelationId());
+                            struct init_ipv4_address_parameter *ipv4addr = (struct init_ipv4_address_parameter *)(((unsigned char *)asconf) + sizeof(struct asconf_chunk) + parPtr);
+                            ipv4addr->type = htons(INIT_PARAM_IPV4);
+                            ipv4addr->length = htons(8);
+                            ipv4addr->address = htonl(deleteip->getAddressParam().toIpv4().getInt());
+                            parPtr += 8;
+                            ip->length = htons(deleteip->getByteLength());
+                            break;
+                        }
+
+                        case SET_PRIMARY_ADDRESS: {
+                            SctpSetPrimaryIPParameter *setip = check_and_cast<SctpSetPrimaryIPParameter *>(parameter);
+                            struct add_ip_parameter *ip = (struct add_ip_parameter *)(((unsigned char *)asconf) + sizeof(struct asconf_chunk) + parPtr);
+                            parPtr += 8;
+                            ip->type = htons(SET_PRIMARY_ADDRESS);
+                            ip->correlation_id = htonl(setip->getRequestCorrelationId());
+                            struct init_ipv4_address_parameter *ipv4addr = (struct init_ipv4_address_parameter *)(((unsigned char *)asconf) + sizeof(struct asconf_chunk) + parPtr);
+                            ipv4addr->type = htons(INIT_PARAM_IPV4);
+                            ipv4addr->length = htons(8);
+                            ipv4addr->address = htonl(setip->getAddressParam().toIpv4().getInt());
+                            parPtr += 8;
+                            ip->length = htons(setip->getByteLength());
+                            break;
+                        }
+                    }
+                }
+                break;
+            }
+
+            case ASCONF_ACK: {
+                SctpAsconfAckChunk *asconfAckChunk = check_and_cast<SctpAsconfAckChunk *>(chunk);
+                struct asconf_ack_chunk *asconfack = (struct asconf_ack_chunk *)(buffer + writtenBytes);
+                writtenBytes += SCTP_ADD_IP_CHUNK_LENGTH;
+                asconfack->type = asconfAckChunk->getSctpChunkType();
+                asconfack->length = htons(asconfAckChunk->getByteLength());
+                asconfack->serial = htonl(asconfAckChunk->getSerialNumber());
+                int parPtr = 0;
+                for (unsigned int i = 0; i < asconfAckChunk->getAsconfResponseArraySize(); i++) {
+                    SctpParameter *parameter = check_and_cast<SctpParameter *>(asconfAckChunk->getAsconfResponse(i));
+                    switch (parameter->getParameterType()) {
+                        case ERROR_CAUSE_INDICATION: {
+                            SctpErrorCauseParameter *error = check_and_cast<SctpErrorCauseParameter *>(parameter);
+                            struct add_ip_parameter *addip = (struct add_ip_parameter *)(((unsigned char *)asconfack) + sizeof(struct asconf_ack_chunk) + parPtr);
+                            addip->type = htons(error->getParameterType());
+                            addip->length = htons(error->getByteLength());
+                            addip->correlation_id = htonl(error->getResponseCorrelationId());
+                            parPtr += 8;
+                            struct error_cause *errorc = (struct error_cause *)(((unsigned char *)asconfack) + sizeof(struct asconf_ack_chunk) + parPtr);
+                            errorc->cause_code = htons(error->getErrorCauseType());
+                            errorc->length = htons(error->getByteLength() - 8);
+                            parPtr += 4;
+                            if (check_and_cast<SctpParameter *>(error->getEncapsulatedPacket()) != nullptr) {
+                                SctpParameter *encParameter = check_and_cast<SctpParameter *>(error->getEncapsulatedPacket());
+                                switch (encParameter->getParameterType()) {
+                                    case ADD_IP_ADDRESS: {
+                                        SctpAddIPParameter *addip = check_and_cast<SctpAddIPParameter *>(encParameter);
+                                        struct add_ip_parameter *ip = (struct add_ip_parameter *)(((unsigned char *)errorc) + sizeof(struct error_cause));
+                                        parPtr += 8;
+                                        ip->type = htons(ADD_IP_ADDRESS);
+                                        ip->correlation_id = htonl(addip->getRequestCorrelationId());
+                                        struct init_ipv4_address_parameter *ipv4addr = (struct init_ipv4_address_parameter *)(((unsigned char *)errorc) + sizeof(struct error_cause) + 8);
+                                        ipv4addr->length = htons(8);
+                                        ipv4addr->address = htonl(addip->getAddressParam().toIpv4().getInt());
+                                        parPtr += 8;
+                                        ip->length = htons(addip->getByteLength());
+                                        break;
+                                    }
+
+                                    case DELETE_IP_ADDRESS: {
+                                        SctpDeleteIPParameter *deleteip = check_and_cast<SctpDeleteIPParameter *>(encParameter);
+                                        struct add_ip_parameter *ip = (struct add_ip_parameter *)(((unsigned char *)errorc) + sizeof(struct error_cause));
+                                        parPtr += 8;
+                                        ip->type = htons(DELETE_IP_ADDRESS);
+                                        ip->correlation_id = htonl(deleteip->getRequestCorrelationId());
+                                        struct init_ipv4_address_parameter *ipv4addr = (struct init_ipv4_address_parameter *)(((unsigned char *)errorc) + sizeof(struct error_cause) + 8);
+                                        ipv4addr->type = htons(INIT_PARAM_IPV4);
+                                        ipv4addr->length = htons(8);
+                                        ipv4addr->address = htonl(deleteip->getAddressParam().toIpv4().getInt());
+                                        parPtr += 8;
+                                        ip->length = htons(deleteip->getByteLength());
+                                        break;
+                                    }
+
+                                    case SET_PRIMARY_ADDRESS: {
+                                        SctpSetPrimaryIPParameter *setip = check_and_cast<SctpSetPrimaryIPParameter *>(encParameter);
+                                        struct add_ip_parameter *ip = (struct add_ip_parameter *)(((unsigned char *)errorc) + sizeof(struct error_cause));
+                                        parPtr += 8;
+                                        ip->type = htons(SET_PRIMARY_ADDRESS);
+                                        ip->correlation_id = htonl(setip->getRequestCorrelationId());
+                                        struct init_ipv4_address_parameter *ipv4addr = (struct init_ipv4_address_parameter *)(((unsigned char *)errorc) + sizeof(struct error_cause) + 8);
+                                        ipv4addr->type = htons(INIT_PARAM_IPV4);
+                                        ipv4addr->length = htons(8);
+                                        ipv4addr->address = htonl(setip->getAddressParam().toIpv4().getInt());
+                                        parPtr += 8;
+                                        ip->length = htons(setip->getByteLength());
+                                        break;
+                                    }
+                                }
+                            }
+                            break;
+                        }
+
+                        case SUCCESS_INDICATION: {
+                            SctpSuccessIndication *success = check_and_cast<SctpSuccessIndication *>(parameter);
+                            struct add_ip_parameter *addip = (struct add_ip_parameter *)(((unsigned char *)asconfack) + sizeof(struct asconf_ack_chunk) + parPtr);
+                            addip->type = htons(success->getParameterType());
+                            addip->length = htons(8);
+                            addip->correlation_id = htonl(success->getResponseCorrelationId());
+                            parPtr += 8;
+                            break;
+                        }
+                    }
+                }
+                writtenBytes += parPtr;
+                break;
+            }
+
+            case ERRORTYPE: {
+                SctpErrorChunk *errorchunk = check_and_cast<SctpErrorChunk *>(chunk);
+                struct error_chunk *error = (struct error_chunk *)(buffer + writtenBytes);
+                error->type = errorchunk->getSctpChunkType();
+                uint16 flags = 0;
+                if (errorchunk->getMBit())
+                    flags |= NAT_M_FLAG;
+                if (errorchunk->getTBit())
+                    flags |= NAT_T_FLAG;
+                error->flags = flags;
+                error->length = htons(errorchunk->getByteLength());
+
+                if (errorchunk->getParametersArraySize() > 0) {
+                    SctpParameter *parameter = check_and_cast<SctpParameter *>(errorchunk->getParameters(0));
+                    switch (parameter->getParameterType()) {
+                        case MISSING_NAT_ENTRY: {
+                            SctpSimpleErrorCauseParameter *ecp = check_and_cast<SctpSimpleErrorCauseParameter *>(parameter);
+                            struct error_cause *errorc = (struct error_cause *)(((unsigned char *)error) + sizeof(struct error_chunk));
+                            errorc->cause_code = htons(ecp->getParameterType());
+                            /* ToDo */
+                          /*  if (check_and_cast<Ipv4Header *>(ecp->getEncapsulatedPacket()) != nullptr) {
+                                Buffer b((unsigned char *)error + sizeof(struct error_chunk) + 4, ecp->getByteLength() - 4);
+                                Context c;
+                                Ipv4Serializer().serializePacket(ecp->getEncapsulatedPacket(), b, c);
+                            }*/
+                            errorc->length = htons(ecp->getByteLength());
+                            break;
+                        }
+                        case INVALID_STREAM_IDENTIFIER: {
+                            SctpSimpleErrorCauseParameter *ecp = check_and_cast<SctpSimpleErrorCauseParameter *>(parameter);
+                            struct error_cause_with_int *errorc = (struct error_cause_with_int *)(((unsigned char *)error) + sizeof(struct error_chunk));
+                            errorc->cause_code = htons(ecp->getParameterType());
+                            errorc->length = htons(ecp->getByteLength());
+                            errorc->info = htons(ecp->getValue());
+                            errorc->reserved = 0;
+                            break;
+                        }
+                        default:
+                            break;
+                    }
+                    writtenBytes += errorchunk->getByteLength();
+                }
+                else
+                    writtenBytes += ADD_PADDING(error->length);
+                break;
+            }
+
+            case RE_CONFIG: {
+                SctpStreamResetChunk *streamReset = check_and_cast<SctpStreamResetChunk *>(chunk);
+                struct stream_reset_chunk *stream = (struct stream_reset_chunk *)(buffer + writtenBytes);
+                writtenBytes += (streamReset->getByteLength());
+                stream->type = streamReset->getSctpChunkType();
+                int parPtr = 0;
+                uint16 numParameters = streamReset->getParametersArraySize();
+                for (int i = 0; i < numParameters; i++) {
+                    SctpParameter *parameter = (SctpParameter *)(streamReset->getParameters(i));
+                    switch (parameter->getParameterType()) {
+                        case OUTGOING_RESET_REQUEST_PARAMETER: {
+                            SctpOutgoingSsnResetRequestParameter *outparam = check_and_cast<SctpOutgoingSsnResetRequestParameter *>(parameter);
+                            struct outgoing_reset_request_parameter *out = (outgoing_reset_request_parameter *)(((unsigned char *)stream) + sizeof(struct stream_reset_chunk) + parPtr);
+                            out->type = htons(outparam->getParameterType());
+                            out->srReqSn = htonl(outparam->getSrReqSn());
+                            out->srResSn = htonl(outparam->getSrResSn());
+                            out->lastTsn = htonl(outparam->getLastTsn());
+                            parPtr += sizeof(struct outgoing_reset_request_parameter);
+                            if (outparam->getStreamNumbersArraySize() > 0) {
+                                for (unsigned int j = 0; j < outparam->getStreamNumbersArraySize(); j++) {
+                                    out->streamNumbers[j] = htons(outparam->getStreamNumbers(j));
+                                }
+                                if (i < numParameters - 1) {
+                                    parPtr += ADD_PADDING(outparam->getStreamNumbersArraySize() * 2);
+                                } else {
+                                    parPtr += outparam->getStreamNumbersArraySize() * 2;
+                                }
+                            }
+                            out->length = htons(sizeof(struct outgoing_reset_request_parameter) + outparam->getStreamNumbersArraySize() * 2);
+                            break;
+                        }
+
+                        case INCOMING_RESET_REQUEST_PARAMETER: {
+                            SctpIncomingSsnResetRequestParameter *inparam = check_and_cast<SctpIncomingSsnResetRequestParameter *>(parameter);
+                            struct incoming_reset_request_parameter *in = (incoming_reset_request_parameter *)(((unsigned char *)stream) + sizeof(struct stream_reset_chunk) + parPtr);
+                            in->type = htons(inparam->getParameterType());
+                            in->srReqSn = htonl(inparam->getSrReqSn());
+                            parPtr += sizeof(struct incoming_reset_request_parameter);
+                            if (inparam->getStreamNumbersArraySize() > 0) {
+                                for (unsigned int j = 0; j < inparam->getStreamNumbersArraySize(); j++) {
+                                    in->streamNumbers[j] = htons(inparam->getStreamNumbers(j));
+                                }
+                                if (i < numParameters - 1) {
+                                    parPtr += ADD_PADDING(inparam->getStreamNumbersArraySize() * 2);
+                                } else {
+                                    parPtr += inparam->getStreamNumbersArraySize() * 2;
+                                }
+                            }
+                            in->length = htons(sizeof(struct incoming_reset_request_parameter) + inparam->getStreamNumbersArraySize() * 2);
+                            break;
+                        }
+
+                        case SSN_TSN_RESET_REQUEST_PARAMETER: {
+                            SctpSsnTsnResetRequestParameter *ssnparam = check_and_cast<SctpSsnTsnResetRequestParameter *>(parameter);
+                            struct ssn_tsn_reset_request_parameter *ssn = (struct ssn_tsn_reset_request_parameter *)(((unsigned char *)stream) + sizeof(struct stream_reset_chunk) + parPtr);
+                            ssn->type = htons(ssnparam->getParameterType());
+                            ssn->length = htons(8);
+                            ssn->srReqSn = htonl(ssnparam->getSrReqSn());
+                            parPtr += sizeof(struct ssn_tsn_reset_request_parameter);
+                            break;
+                        }
+
+                        case STREAM_RESET_RESPONSE_PARAMETER: {
+                            SctpStreamResetResponseParameter *response = check_and_cast<SctpStreamResetResponseParameter *>(parameter);
+                            struct stream_reset_response_parameter *resp = (struct stream_reset_response_parameter *)(((unsigned char *)stream) + sizeof(struct stream_reset_chunk) + parPtr);
+                            resp->type = htons(response->getParameterType());
+                            resp->srResSn = htonl(response->getSrResSn());
+                            resp->result = htonl(response->getResult());
+                            resp->length = htons(12);
+                            parPtr += 12;
+                            if (response->getSendersNextTsn() != 0) {
+                                resp->sendersNextTsn = htonl(response->getSendersNextTsn());
+                                resp->receiversNextTsn = htonl(response->getReceiversNextTsn());
+                                resp->length = htons(20);
+                                parPtr += 8;
+                            }
+                            break;
+                        }
+
+                        case ADD_INCOMING_STREAMS_REQUEST_PARAMETER: {
+                            SctpAddStreamsRequestParameter *instreams = check_and_cast<SctpAddStreamsRequestParameter *>(parameter);
+                            struct add_streams_request_parameter *addinp = (struct add_streams_request_parameter *)(((unsigned char *)stream) + sizeof(struct stream_reset_chunk) + parPtr);
+                            addinp->type = htons(instreams->getParameterType());
+                            addinp->srReqSn = htonl(instreams->getSrReqSn());
+                            addinp->numberOfStreams = htons(instreams->getNumberOfStreams());
+                            addinp->reserved = 0;
+                            addinp->length = htons(12);
+                            parPtr += 12;
+                            break;
+                        }
+
+                       case ADD_OUTGOING_STREAMS_REQUEST_PARAMETER: {
+                            SctpAddStreamsRequestParameter *outstreams = check_and_cast<SctpAddStreamsRequestParameter *>(parameter);
+                            struct add_streams_request_parameter *addoutp = (struct add_streams_request_parameter *)(((unsigned char *)stream) + sizeof(struct stream_reset_chunk) + parPtr);
+                            addoutp->type = htons(outstreams->getParameterType());
+                            addoutp->srReqSn = htonl(outstreams->getSrReqSn());
+                            addoutp->numberOfStreams = htons(outstreams->getNumberOfStreams());
+                            addoutp->reserved = 0;
+                            addoutp->length = htons(12);
+                            parPtr += 12;
+                            break;
+                        }
+                    }
+                }
+                stream->length = htons(SCTP_STREAM_RESET_CHUNK_LENGTH + parPtr);
+                break;
+            }
+
+            case PKTDROP: {
+                SctpPacketDropChunk *packetdrop = check_and_cast<SctpPacketDropChunk *>(chunk);
+                struct pktdrop_chunk *drop = (struct pktdrop_chunk *)(buffer + writtenBytes);
+                unsigned char flags = 0;
+                if (packetdrop->getCFlag())
+                    flags |= C_FLAG;
+                if (packetdrop->getTFlag())
+                    flags |= T_FLAG;
+                if (packetdrop->getBFlag())
+                    flags |= B_FLAG;
+                if (packetdrop->getMFlag())
+                    flags |= M_FLAG;
+                drop->flags = flags;
+                drop->type = packetdrop->getSctpChunkType();
+                drop->max_rwnd = htonl(packetdrop->getMaxRwnd());
+                drop->queued_data = htonl(packetdrop->getQueuedData());
+                drop->trunc_length = htons(packetdrop->getTruncLength());
+                drop->reserved = 0;
+                SctpHeader *msg = check_and_cast<SctpHeader *>(packetdrop->getEncapsulatedPacket());
+                int msglen = B(msg->getChunkLength()).get();
+                drop->length = htons(SCTP_PKTDROP_CHUNK_LENGTH + msglen);
+                //int len = serialize(msg, drop->dropped_data, msglen);
+                writtenBytes += (packetdrop->getByteLength());
+                break;
+            }
+
+            default:
+                throw new cRuntimeError("TODO: unknown chunktype in outgoing packet on external interface! Implement it!");
+        }
+    }
+    // calculate the HMAC if required
+    uint8 result[SHA_LENGTH];
+    if (authstart != 0) {
+        struct data_vector *ac = (struct data_vector *)(buffer + authstart);
+        hmacSha1((uint8 *)ac->data, writtenBytes - authstart, sharedKey, sizeKeyVector + sizePeerKeyVector, result);
+        struct auth_chunk *auth = (struct auth_chunk *)(buffer + authstart);
+        for (int32 k = 0; k < SHA_LENGTH; k++)
+            auth->hmac[k] = result[k];
+    }
+    return buffer;
+}
+
 
 } // namespace sctp
 
