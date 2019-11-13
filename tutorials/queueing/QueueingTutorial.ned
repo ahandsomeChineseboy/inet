@@ -545,6 +545,8 @@ module TestCable
         bDelayer.out --> { @display("m=w"); } --> bOut;
 }
 
+//-------------------------------------------------
+
 network TestNetworkTutorialStep
 {
     submodules:

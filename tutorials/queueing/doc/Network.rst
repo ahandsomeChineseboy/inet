@@ -4,7 +4,7 @@ Network
 This step demonstrates how to combine queueing components to create a simplistic network.
 
 .. figure:: media/Network_TestCable.png
-   :width: 25%
+   :width: 30%
    :align: center
 
 .. figure:: media/Network.png
@@ -15,12 +15,27 @@ This step demonstrates how to combine queueing components to create a simplistic
    :width: 60%
    :align: center
 
-.. figure:: media/Network_TestMac.png
+.. figure:: media/NetworkInterface.png
    :width: 50%
    :align: center
 
 .. literalinclude:: ../QueueingTutorial.ned
    :start-at: network TestNetworkTutorialStep
+   :end-before: //----
+   :language: ned
+
+.. literalinclude:: ../QueueingTutorial.ned
+   :start-at: module TestHost
+   :end-before: //----
+   :language: ned
+
+.. literalinclude:: ../QueueingTutorial.ned
+   :start-at: module TestInterface
+   :end-before: //----
+   :language: ned
+
+.. literalinclude:: ../QueueingTutorial.ned
+   :start-at: module TestCable
    :end-before: //----
    :language: ned
 
