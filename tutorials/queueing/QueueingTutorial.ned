@@ -171,7 +171,7 @@ network ClassifierTutorialStep
 //-------------------------------------------------
 
 
-module TestCompoundPacketQueue extends CompoundPacketQueue
+module ExampleCompoundPacketQueue extends CompoundPacketQueue
 {
     parameters:
         @class(::inet::queueing::CompoundPacketQueue);
@@ -207,7 +207,7 @@ network CompoundPacketQueueTutorialStep
         producer: ActivePacketSource {
             @display("p=100,100");
         }
-        queue: TestCompoundPacketQueue {
+        queue: ExampleCompoundPacketQueue {
             @display("p=300,100");
         }
         collector: ActivePacketSink {
@@ -470,7 +470,7 @@ network MultiplexerTutorialStep
 //-------------------------------------------------
 
 
-module TestInterface
+module ExampleInterface
 {
     @display("bgb=400,300;i=device/card");
     gates:
@@ -495,7 +495,7 @@ module TestInterface
 //-------------------------------------------------
 
 
-module TestHost
+module ExampleHost
 {
     parameters:
         @display("i=device/pc");
@@ -509,7 +509,7 @@ module TestHost
         destinationApplication: PassivePacketSink {
             @display("p=300,100");
         }
-        interface: TestInterface {
+        interface: ExampleInterface {
             @display("p=200,200");
         }
     connections:
@@ -522,7 +522,7 @@ module TestHost
 //-------------------------------------------------
 
 
-module TestCable
+module ExampleCable
 {
     parameters:
         @display("i=block/mac");
@@ -547,16 +547,16 @@ module TestCable
 
 //-------------------------------------------------
 
-network TestNetworkTutorialStep
+network ExampleNetworkTutorialStep
 {
     submodules:
-        source: TestHost {
+        source: ExampleHost {
             @display("p=100,100");
         }
-        cable: TestCable {
+        cable: ExampleCable {
             @display("p=200,100");
         }
-        destination: TestHost {
+        destination: ExampleHost {
             @display("p=300,100");
         }
     connections:
@@ -792,22 +792,23 @@ network PacketQueueTutorialStep
 
 network RedDropperTutorialStep
 {
-    @display("bgb=1250,300");
     submodules:
         producer: ActivePacketSource {
             @display("p=100,100");
         }
-        dropper1: RedDropper {
+        dropper: RedDropper {
+            @display("p=300,100");
+        }
+        queue: PacketQueue {
             @display("p=500,100");
         }
-        queue1: PacketQueue {
-            @display("p=725,100");
-        }
         collector: ActivePacketSink {
-            @display("p=1150,100");
+            @display("p=700,100");
         }
     connections:
-        dropper1.out --> queue1.in;
+        producer.out --> dropper.in;
+        dropper.out --> queue.in;
+        queue.out --> collector.in;
 }
 
 //-------------------------------------------------

@@ -1,10 +1,10 @@
 Network
 =======
 
-This step demonstrates how to combine queueing components to create a simplistic network.
-The network features two hosts communicating. The hosts are connected by a cable module which
+This step demonstrates combining queueing components to create a simplistic network.
+The network features two hosts (ExampleHost) communicating. The hosts are connected by a cable module (ExampleCable) which
 adds delay to the connection. Each host contains a packet source and a packet sink application,
-connected to the network level by an interface module.
+connected to the network level by an interface module (ExampleInterface).
 
 .. figure:: media/Network_TestCable.png
    :width: 30%
@@ -23,26 +23,26 @@ connected to the network level by an interface module.
    :align: center
 
 .. literalinclude:: ../QueueingTutorial.ned
-   :start-at: network TestNetworkTutorialStep
+   :start-at: network ExampleNetworkTutorialStep
    :end-before: //----
    :language: ned
 
 .. literalinclude:: ../QueueingTutorial.ned
-   :start-at: module TestHost
+   :start-at: module ExampleHost
    :end-before: //----
    :language: ned
 
 .. literalinclude:: ../QueueingTutorial.ned
-   :start-at: module TestInterface
+   :start-at: module ExampleInterface
    :end-before: //----
    :language: ned
 
 .. literalinclude:: ../QueueingTutorial.ned
-   :start-at: module TestCable
+   :start-at: module ExampleCable
    :end-before: //----
    :language: ned
 
 .. literalinclude:: ../omnetpp.ini
-   :start-at: Config TestNetwork
+   :start-at: Config ExampleNetwork
    :end-at: delay
    :language: ini
