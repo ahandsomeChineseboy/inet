@@ -2,10 +2,10 @@ Priority Scheduler
 ==================
 
 In this step, packets are collected periodically by an active packet sink
-(ActivePacketSink). The packets are produced by two active packet sources
-(ActivePacketSources). The sources are connected to FIFO queues (PacketQueue)
+(:ned:`ActivePacketSink`). The packets are produced by two active packet sources
+(:ned:`ActivePacketSources`). The sources are connected to FIFO queues (:ned:`PacketQueue`)
 where packets are stored temporarily. The single sink is connected to the
-queues using a scheduler (PriorityScheduler). The scheduler forwards packets
+queues using a scheduler (:ned:`PriorityScheduler`). The scheduler forwards packets
 from the queues to the sink in a prioritized way.
 
 .. figure:: media/PriorityScheduler.png

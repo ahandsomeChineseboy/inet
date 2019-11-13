@@ -2,9 +2,9 @@ Classifier
 ==========
 
 In this step, packets are produced periodically by an active packet source
-(ActivePacketSource). The packets are consumed by two passive packet sinks
-(PassivePacketSinks). The single source is connected to the two sinks using a
-classifier (PacketClassifier). The classifier forwards packets alternately to
+(:ned:`ActivePacketSource`). The packets are consumed by two passive packet sinks
+(:ned:`PassivePacketSinks`). The single source is connected to the two sinks using a
+classifier (:ned:`PacketClassifier`). The classifier forwards packets alternately to
 one or the other sink.
 
 .. figure:: media/Classifier.png

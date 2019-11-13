@@ -2,9 +2,9 @@ Demultiplexer
 =============
 
 In this step, packets are collected periodically (randomly) by several active
-packet sinks (ActivePacketSinks). The packets are provided by a single passive
-packet source upon request (PassivePacketSource). The single source is connected to
-the multiple sinks using an intermediary component (PacketDemultiplexer) which
+packet sinks (:ned:`ActivePacketSinks`). The packets are provided by a single passive
+packet source upon request (:ned:`PassivePacketSource`). The single source is connected to
+the multiple sinks using an intermediary component (:ned:`PacketDemultiplexer`) which
 simply forwards packets.
 
 .. figure:: media/Demultiplexer.png

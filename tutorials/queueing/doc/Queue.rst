@@ -2,9 +2,9 @@ Packet Queue
 ============
 
 In this step, packets are produced periodically (randomly) by an active packet
-source (ActivePacketSource). The packets are collected periodically (randomly) by
-an active packet sink (ActivePacketSink). The source and the sink is connected
-by a FIFO queue (PacketQueue) where packets are stored temporarily.
+source (:ned:`ActivePacketSource`). The packets are collected periodically (randomly) by
+an active packet sink (:ned:`ActivePacketSink`). The source and the sink is connected
+by a FIFO queue (:ned:`PacketQueue`) where packets are stored temporarily.
 
 .. figure:: media/PacketQueue.png
    :width: 80%

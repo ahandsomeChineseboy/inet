@@ -2,9 +2,9 @@ Multiplexer
 ===========
 
 In this step, packets are produced periodically (randomly) by several active
-packet sources (ActivePacketSources). The packets are consumed by a single passive
-packet sink upon arrival (PassivePacketSink). The single sink is connected to the
-multiple sources using an intermediary component (PacketMultiplexer) which simply
+packet sources (:ned:`ActivePacketSources`). The packets are consumed by a single passive
+packet sink upon arrival (:ned:`PassivePacketSink`). The single sink is connected to the
+multiple sources using an intermediary component (:ned:`PacketMultiplexer`) which simply
 forwards packets.
 
 .. figure:: media/Multiplexer.png

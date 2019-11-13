@@ -2,8 +2,8 @@ Ordinal Based Dropper
 =====================
 
 In this step, packets are produced periodically by an active packet source
-(ActivePacketSource). The packets are consumed by a passive packet sink (PassivePacketSink).
-Packets are passed through from the source to the sink by a dropper (OrdinalBasedDropper).
+(:ned:`ActivePacketSource`). The packets are consumed by a passive packet sink (:ned:`PassivePacketSink`).
+Packets are passed through from the source to the sink by a dropper (:ned:`OrdinalBasedDropper`).
 Every second packet is dropped based on its ordinal number.
 
 .. figure:: media/OrdinalBasedDropper.png

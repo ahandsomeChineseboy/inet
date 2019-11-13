@@ -5,18 +5,18 @@ This test contains a simplified version of a client/server and a request/respons
 based communication.
 
 Request packets are produced periodically and randomly by an active packet
-source (ActivePacketSource) in the client. The generated requests fall into one of
+source (:ned:`ActivePacketSource`) in the client. The generated requests fall into one of
 two categories based on the data they contain.
 
 The server processes requests in order, one by one, using a compound consumer
-(RequestConsumer). Each request is first classified based on the data it contains,
+(:ned:`RequestConsumer`). Each request is first classified based on the data it contains,
 and then a certain number of tokens are generated as the request is consumed.
 
-The tokens are added to a response server in a compound producer (ResponseProducer).
+The tokens are added to a response server in a compound producer (:ned:`ResponseProducer`).
 The response producer generates different traffic randomly over a period of time
 for each kind of request.
 
-The client consumes the response packets by a passive packet sink (PassivePacketSink).
+The client consumes the response packets by a passive packet sink (:ned:`PassivePacketSink`).
 
 .. figure:: media/ResponseProducer.png
    :width: 70%

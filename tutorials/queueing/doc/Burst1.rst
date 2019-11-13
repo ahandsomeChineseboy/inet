@@ -2,10 +2,10 @@ Burst 1
 =======
 
 In this step, packets are periodically (randomly) produced by two active sources
-(ActivePacketSources). One source produces packets with a slower rate while the other
+(:ned:`ActivePacketSources`). One source produces packets with a slower rate while the other
 source uses a faster rate. The two packet sources are combined using a markov
 chain with random transition matrix and random wait intervals. The packets are
-consumed by a single passive sink (PassivePacketSink).
+consumed by a single passive sink (:ned:`PassivePacketSink`).
 
 .. figure:: media/Burst1.png
    :width: 80%

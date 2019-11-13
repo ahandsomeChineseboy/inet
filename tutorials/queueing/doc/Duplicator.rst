@@ -2,9 +2,9 @@ Duplicator
 ==========
 
 In this step, packets are produced periodically by an active packet source
-(ActivePacketSource). The produced packets are randomly either duplicated or not
-(PacketDuplicator). Finally, the packets are all sent into a passive packet
-sink (PassivePacketSink).
+(:ned:`ActivePacketSource`). The produced packets are randomly either duplicated or not
+(:ned:`PacketDuplicator`). Finally, the packets are all sent into a passive packet
+sink (:ned:`PassivePacketSink`).
 
 .. figure:: media/Duplicator.png
    :width: 80%

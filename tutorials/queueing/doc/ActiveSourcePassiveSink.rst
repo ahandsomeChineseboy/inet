@@ -2,8 +2,8 @@ Active Source Passive Sink
 ==========================
 
 In this step, packets are produced periodically by an active packet source
-(ActivePacketSource). The packets are consumed by a passive packet sink
-(PassivePacketSink).
+(:ned:`ActivePacketSource`). The packets are consumed by a passive packet sink
+(:ned:`PassivePacketSink`).
 
 .. figure:: media/ActiveSourcePassiveSink.png
    :width: 50%

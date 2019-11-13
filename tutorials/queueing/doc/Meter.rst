@@ -2,8 +2,8 @@ Meter
 =====
 
 In this step, packets are produced periodically by an active packet source
-(ActivePacketSource). The packets are consumed by a passive packet sink
-(PassivePacketSink). The packet rate is measured and if the rate of packets
+(:ned:`ActivePacketSource`). The packets are consumed by a passive packet sink
+(:ned:`PassivePacketSink`). The packet rate is measured and if the rate of packets
 is higher than a predefined threshold, then packets are dropped.
 
 .. figure:: media/Meter.png

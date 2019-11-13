@@ -1,9 +1,9 @@
 Leaky Bucket
 ============
 
-In this step, packets are produced by an active packet source (ActivePacketSource).
+In this step, packets are produced by an active packet source (:ned:`ActivePacketSource`).
 The packet source pushes packets into a leaky bucket module, which pushes them into
-a passive packet sink (PassivePacketSink).
+a passive packet sink (:ned:`PassivePacketSink`).
 
 .. figure:: media/LeakyBucket.png
    :width: 60%

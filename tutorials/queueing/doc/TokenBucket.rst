@@ -1,10 +1,10 @@
 Token Bucket
 ============
 
-In this step, packets are produced periodically by an active packet source (ActivePacketSource).
-The packets are pushed to a token bucket module (TokenBucket). A token generator (TimeBasedTokenGenerator)
+In this step, packets are produced periodically by an active packet source (:ned:`ActivePacketSource`).
+The packets are pushed to a token bucket module (:ned:`TokenBucket`). A token generator (:ned:`TimeBasedTokenGenerator`)
 generates tokens periodically into the token bucket module. When the token bucket has sufficient
-tokens, it emits a packet into a passive packet sink (PassivePacketSink).
+tokens, it emits a packet into a passive packet sink (:ned:`PassivePacketSink`).
 
 .. figure:: media/TokenBucket.png
    :width: 60%

@@ -2,9 +2,9 @@ Gate1
 =====
 
 In this step, packets are produced periodically by an active packet source
-(ActivePacketSource). The packets pass through a packet gate if it's open,
+(:ned:`ActivePacketSource`). The packets pass through a packet gate if it's open,
 otherwise packets are not generated. The packets are consumed by a passive
-packet sink (PassivePacketSink).
+packet sink (:ned:`PassivePacketSink`).
 
 .. figure:: media/Gate1.png
    :width: 80%

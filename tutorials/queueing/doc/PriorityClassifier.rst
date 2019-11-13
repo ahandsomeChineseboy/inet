@@ -2,10 +2,10 @@ Priority Classifier
 ===================
 
 In this step, packets are produced periodically by an active packet source
-(ActivePacketSource). The packets are consumed by two active packet sinks
-(ActivePacketSinks). The sinks are connected to FIFO queues (PacketQueue) with
+(:ned:`ActivePacketSource`). The packets are consumed by two active packet sinks
+(:ned:`ActivePacketSinks`). The sinks are connected to FIFO queues (:ned:`PacketQueue`) with
 limited capacity where packets are stored temporarily. The single source is
-connected to the two queues using a classifier (PriorityClassifier). The
+connected to the two queues using a classifier (:ned:`PriorityClassifier`). The
 classifier forwards packets from the producer to the queues in a prioritized
 way.
 

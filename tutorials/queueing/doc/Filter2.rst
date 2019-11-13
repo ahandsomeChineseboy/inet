@@ -2,9 +2,9 @@ Filter 2
 ========
 
 In this step, packets are collected periodically by an active packet sink
-(ActivePacketSink). The packets are provided by a passive packet source
-(PassivePacketSource). Packets are passed through from the source to the sink by
-a filter (ContentBasedFilter). Every second packet is dropped.
+(:ned:`ActivePacketSink`). The packets are provided by a passive packet source
+(:ned:`PassivePacketSource`). Packets are passed through from the source to the sink by
+a filter (:ned:`ContentBasedFilter`). Every second packet is dropped.
 
 .. figure:: media/Filter2.png
    :width: 80%
