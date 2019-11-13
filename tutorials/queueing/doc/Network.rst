@@ -2,6 +2,9 @@ Network
 =======
 
 This step demonstrates how to combine queueing components to create a simplistic network.
+The network features two hosts communicating. The hosts are connected by a cable module which
+adds delay to the connection. Each host contains a packet source and a packet sink application,
+connected to the network level by an interface module.
 
 .. figure:: media/Network_TestCable.png
    :width: 30%
