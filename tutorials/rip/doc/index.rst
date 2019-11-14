@@ -1,7 +1,7 @@
 RIP Routing Tutorial
 ====================
 
-This tutorial ... TODO
+This tutorial demonstrates the operation of the RIP routing protocol model in INET.
 
 Contents:
 

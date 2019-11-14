@@ -1,10 +1,7 @@
 OSPF Routing Tutorial
 =====================
 
-This tutorial shows ... TODO
-
-.. The tutorial itself is organized into several steps, each one demonstrating
-   a different feature or use case.
+This tutorial demonstrates the operation of the OSPF routing protocol model in INET.
 
 Contents:
 

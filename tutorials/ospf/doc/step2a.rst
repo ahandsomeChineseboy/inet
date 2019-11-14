@@ -1,5 +1,5 @@
-Step 2a. Reroute after link breackage
-=====================================
+Step 2a. Reroute after link breakage
+====================================
 
 Goals
 -----
