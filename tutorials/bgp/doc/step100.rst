@@ -4,7 +4,7 @@ Step 100. BGP Policy
 Goals
 -----
 
-TODO
+[explanation]
 
 Configuration
 ~~~~~~~~~~~~~
@@ -33,7 +33,7 @@ The BGP configuration:
 Results
 ~~~~~~~
 
-TODO
+[explanation]
 
 Sources: :download:`BGP_Topology_1a.ned <../BGP_Topology_1a.ned>`,
 :download:`omnetpp.ini <../omnetpp.ini>`,

@@ -4,7 +4,7 @@ Step 9. High-priority OSPF router joins after OSPF DR/BDR election
 Goals
 -----
 
-TODO
+[explanation]
 
 Configuration
 ~~~~~~~~~~~~~
@@ -21,7 +21,7 @@ The configuration in ``omnetpp.ini`` is the following:
 Results
 ~~~~~~~
 
-TODO
+[explanation]
 
 Sources:
 :download:`omnetpp.ini <../omnetpp.ini>`,

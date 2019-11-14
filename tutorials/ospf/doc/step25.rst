@@ -4,7 +4,7 @@ Step 25. PCAP recording
 Goals
 -----
 
-TODO
+[explanation]
 
 Configuration
 ~~~~~~~~~~~~~

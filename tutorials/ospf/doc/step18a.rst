@@ -4,7 +4,7 @@ Step 18a. AS-External LSAs of 'type 1 metric' with the same advertised destinati
 Goals
 -----
 
-TODO
+[explanation]
 
 Configuration
 ~~~~~~~~~~~~~
@@ -26,7 +26,7 @@ The OSPF configuration:
 Results
 ~~~~~~~
 
-TODO
+[explanation]
 
 Sources:
 :download:`omnetpp.ini <../omnetpp.ini>`,

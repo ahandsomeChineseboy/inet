@@ -4,7 +4,7 @@ Step 12. Multi-hop E-BGP
 Goals
 -----
 
-TODO
+[explanation]
 
 Configuration
 ~~~~~~~~~~~~~
@@ -34,7 +34,7 @@ The BGP configuration:
 Results
 ~~~~~~~
 
-TODO
+[explanation]
 
 Sources: :download:`Multihop_EBGP.ned <../Multihop_EBGP.ned>`,
 :download:`omnetpp.ini <../omnetpp.ini>`,

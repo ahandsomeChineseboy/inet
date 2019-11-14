@@ -4,7 +4,7 @@ Step 23. OSPF Path Selection
 Goals
 -----
 
-TODO
+[explanation]
 
 Configuration
 ~~~~~~~~~~~~~
@@ -34,7 +34,7 @@ The OSPF configuration:
 Results
 ~~~~~~~
 
-TODO
+[explanation]
 
 Sources:
 :download:`omnetpp.ini <../omnetpp.ini>`,

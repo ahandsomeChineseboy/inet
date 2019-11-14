@@ -4,7 +4,7 @@ Step 5b. Enabling BGP on RB3
 Goals
 -----
 
-TODO
+[explanation]
 
 Configuration
 ~~~~~~~~~~~~~
@@ -26,7 +26,7 @@ The BGP configuration:
 Results
 ~~~~~~~
 
-TODO
+[explanation]
 
 Sources: :download:`BGP_Topology_3.ned <../BGP_Topology_3.ned>`,
 :download:`omnetpp.ini <../omnetpp.ini>`,

@@ -4,7 +4,7 @@ Step 11. MED Attribute
 Goals
 -----
 
-TODO
+[explanation]
 
 Configuration
 ~~~~~~~~~~~~~
@@ -29,10 +29,10 @@ The configuration in ``omnetpp.ini`` is the following:
 Results
 ~~~~~~~
 
-TODO
+[explanation]
 
 Sources: :download:`BGP_LOCAL_PREF.ned <../BGP_LOCAL_PREF.ned>`,
-:download:`omnetpp.ini <../omnetpp.ini>`, TODO
+:download:`omnetpp.ini <../omnetpp.ini>`, [explanation]
 
 Discussion
 ----------

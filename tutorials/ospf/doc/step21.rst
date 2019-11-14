@@ -4,7 +4,7 @@ Step 21. Virtual link - connect two separate parts of a discontinuous backbone
 Goals
 -----
 
-TODO
+[explanation]
 
 Configuration
 ~~~~~~~~~~~~~
@@ -34,7 +34,7 @@ The OSPF configuration:
 Results
 ~~~~~~~
 
-TODO
+[explanation]
 
 Sources:
 :download:`omnetpp.ini <../omnetpp.ini>`,

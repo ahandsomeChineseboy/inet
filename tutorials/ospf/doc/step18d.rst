@@ -4,7 +4,7 @@ Step 18d. AS-External LSAs of mixed 'type 1/type 2 metric' with the same adverti
 Goals
 -----
 
-TODO
+[explanation]
 
 Configuration
 ~~~~~~~~~~~~~
@@ -26,7 +26,7 @@ The OSPF configuration:
 Results
 ~~~~~~~
 
-TODO
+[explanation]
 
 Sources:
 :download:`omnetpp.ini <../omnetpp.ini>`,

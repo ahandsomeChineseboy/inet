@@ -6,7 +6,7 @@ Goals
 
 This example shows how to advertise selective networks in BGP using the 'Network' attribute.
 
-TODO
+[explanation]
 
 Configuration
 ~~~~~~~~~~~~~
@@ -28,7 +28,7 @@ The BGP configuration:
 Results
 ~~~~~~~
 
-TODO
+[explanation]
 
 Sources: :download:`BGP_Topology_4.ned <../BGP_Topology_4.ned>`,
 :download:`omnetpp.ini <../omnetpp.ini>`,

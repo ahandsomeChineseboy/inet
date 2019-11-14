@@ -4,7 +4,7 @@ Step 6. BGP Scenario and using loopbacks
 Goals
 -----
 
-TODO
+[explanation]
 
 Configuration
 ~~~~~~~~~~~~~
@@ -34,7 +34,7 @@ The BGP configuration:
 Results
 ~~~~~~~
 
-TODO
+[explanation]
 
 Sources: :download:`BGP_Topology_4.ned <../BGP_Topology_4.ned>`,
 :download:`omnetpp.ini <../omnetpp.ini>`,

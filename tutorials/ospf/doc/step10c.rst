@@ -4,7 +4,7 @@ Step 10c. Router R5 (BDR) goes down
 Goals
 -----
 
-TODO
+[explanation]
 
 Configuration
 ~~~~~~~~~~~~~
@@ -31,7 +31,7 @@ The configuration in ``omnetpp.ini`` is the following:
 Results
 ~~~~~~~
 
-TODO
+[explanation]
 
 Sources:
 :download:`omnetpp.ini <../omnetpp.ini>`,

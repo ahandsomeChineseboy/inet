@@ -4,7 +4,7 @@ Step 4. Router LSA
 Goals
 -----
 
-TODO
+[explanation]
 
 Configuration
 ~~~~~~~~~~~~~
@@ -29,7 +29,7 @@ The configuration in ``omnetpp.ini`` is the following:
 Results
 ~~~~~~~
 
-TODO
+[explanation]
 
 Sources:
 :download:`omnetpp.ini <../omnetpp.ini>`,

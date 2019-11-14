@@ -4,7 +4,7 @@ Step 5a. BGP internal distribution
 Goals
 -----
 
-TODO
+[explanation]
 
 Configuration
 ~~~~~~~~~~~~~
@@ -21,7 +21,7 @@ The configuration in ``omnetpp.ini`` is the following:
 Results
 ~~~~~~~
 
-TODO
+[explanation]
 
 Sources: :download:`BGP_Topology_3.ned <../BGP_Topology_3.ned>`,
 :download:`omnetpp.ini <../omnetpp.ini>`,

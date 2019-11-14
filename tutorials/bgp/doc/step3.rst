@@ -4,7 +4,7 @@ Step 3. BGP Path Attributes
 Goals
 -----
 
-TODO
+[explanation]
 
 Configuration
 ~~~~~~~~~~~~~
@@ -34,7 +34,7 @@ The BGP configuration:
 Results
 ~~~~~~~
 
-TODO
+[explanation]
 
 Sources: :download:`BGP_Topology_1a.ned <../BGP_Topology_1a.ned>`,
 :download:`omnetpp.ini <../omnetpp.ini>`,

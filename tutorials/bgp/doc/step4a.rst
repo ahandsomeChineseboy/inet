@@ -4,7 +4,7 @@ Step 4a. Enable nextHopSelf on RB1 and RB2
 Goals
 -----
 
-TODO
+[explanation]
 
 Configuration
 ~~~~~~~~~~~~~
@@ -26,7 +26,7 @@ The BGP configuration:
 Results
 ~~~~~~~
 
-TODO
+[explanation]
 
 Sources: :download:`BGP_Topology_2.ned <../BGP_Topology_2.ned>`,
 :download:`omnetpp.ini <../omnetpp.ini>`,

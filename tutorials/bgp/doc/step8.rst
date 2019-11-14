@@ -4,7 +4,7 @@ Step 8. BGP with OSPF and RIP redistribution
 Goals
 -----
 
-TODO
+[explanation]
 
 Configuration
 ~~~~~~~~~~~~~
@@ -26,7 +26,7 @@ The BGP configuration:
 Results
 ~~~~~~~
 
-TODO
+[explanation]
 
 Sources: :download:`BGP_Topology_4.ned <../BGP_Topology_4.ned>`,
 :download:`omnetpp.ini <../omnetpp.ini>`,

@@ -4,7 +4,7 @@ Step 2. BGP Scenario with E-BGP session only
 Goals
 -----
 
-TODO
+[explanation]
 
 Configuration
 ~~~~~~~~~~~~~
@@ -34,7 +34,7 @@ The BGP configuration:
 Results
 ~~~~~~~
 
-TODO
+[explanation]
 
 Sources: :download:`BGP_Topology_1.ned <../BGP_Topology_1.ned>`,
 :download:`omnetpp.ini <../omnetpp.ini>`,

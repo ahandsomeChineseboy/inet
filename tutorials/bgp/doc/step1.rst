@@ -4,7 +4,7 @@ Step 1. BGP Basic Topology
 Goals
 -----
 
-TODO
+[explanation]
 
 Configuration
 ~~~~~~~~~~~~~
@@ -34,7 +34,7 @@ The BGP configuration:
 Results
 ~~~~~~~
 
-TODO
+[explanation]
 
 Sources: :download:`BGP_Basic_Topology.ned <../BGP_Basic_Topology.ned>`,
 :download:`omnetpp.ini <../omnetpp.ini>`,

@@ -4,7 +4,7 @@ Step 5. BGP Scenario with I-BGP over not directly-connected BGP speakers
 Goals
 -----
 
-TODO
+[explanation]
 
 Configuration
 ~~~~~~~~~~~~~
@@ -34,7 +34,7 @@ The BGP configuration:
 Results
 ~~~~~~~
 
-TODO
+[explanation]
 
 Sources: :download:`BGP_Topology_3.ned <../BGP_Topology_3.ned>`,
 :download:`omnetpp.ini <../omnetpp.ini>`,
