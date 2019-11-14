@@ -30,12 +30,16 @@ the route to the 10.0.0.24/29 network from ``router2``. As indicated on
 the following image, the last update to the route was at 30s, thats when
 the timeout timer was started.
 
-|image0|
+.. figure:: media/step4_3.png
+   :width: 80%
+   :align: center
 
 The timeout timer expires at 210s, the route is set to metric 16, and
 the flush timer is started.
 
-|image1|
+.. figure:: media/step4_4.png
+   :width: 80%
+   :align: center
 
 The flush timer expires at 330s, and the route is removed from the RIP
 table.
@@ -44,5 +48,3 @@ TODO: what happens
 
 TODO: screenshots or routing tables / RIP packets
 
-.. |image0| image:: media/step4_3.png
-.. |image1| image:: media/step4_4.png

@@ -10,9 +10,11 @@ by the :ned:`Ipv4NetworkConfigurator` module.
 The model
 ---------
 
-The configuration uses the following network, defined in :
+The configuration uses the following network:
 
-|image0|
+.. figure:: media/step1network.png
+   :width: 80%
+   :align: center
 
 TODO: the network contains three LANs, connected to a network of routers
 via ethernet switches
@@ -34,7 +36,9 @@ Results
 The following image shows the routes towards ``host0`` as red arrows,
 and towards ``host6`` as blue arrows:
 
-|image1|
+.. figure:: media/step1routes.png
+   :width: 80%
+   :align: center
 
 Here is a video of ``host0`` pinging ``host6``:
 
@@ -43,5 +47,4 @@ Here is a video of ``host0`` pinging ``host6``:
 
 ..   <!--internal video recording, animation speed none, playback speed 2.138, zoom 0.77-->
 
-.. |image0| image:: media/step1network.png
-.. |image1| image:: media/step1routes.png
+
