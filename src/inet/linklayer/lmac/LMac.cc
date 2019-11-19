@@ -427,7 +427,7 @@ void LMac::handleSelfMessage(cMessage *msg)
 
                 control->setSrcAddr(address);
                 control->setMySlot(mySlot);
-                control->setChunkLength(ctrlFrameLength + b(numSlots));    //FIXME check it: add only 1 bit / slot?
+                control->setChunkLength(ctrlFrameLength + B(numSlots * 6));    //FIXME check it: add only 1 bit / slot?
                 control->setOccupiedSlotsArraySize(numSlots);
                 for (int i = 0; i < numSlots; i++)
                     control->setOccupiedSlots(i, occSlotsDirect[i]);
@@ -627,7 +627,7 @@ void LMac::decapsulate(Packet *packet)
 void LMac::encapsulate(Packet *netwPkt)
 {
     auto pkt = makeShared<LMacDataFrameHeader>();
-    pkt->setChunkLength(headerLength);
+    pkt->setChunkLength(headerLength + B(numSlots * 6));
 
     // copy dest address from the Control Info attached to the network
     // message by the network layer
