@@ -12,7 +12,15 @@ The model
 
 TODO: about RIP and the INET implementation
 
-TODO: the network and config for this step
+This step uses the same network as the previous one.
+
+The configuration in ``omnetpp.ini`` is the following:
+
+.. literalinclude:: ../omnetpp.ini
+   :language: ini
+   :start-at: Step2
+   :end-before: ------
+
 
 Results
 -------

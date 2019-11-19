@@ -4,8 +4,18 @@ Step 10. Configure an interface as NoRIP
 Goals
 -----
 
+TODO
+
 The model
 ---------
+
+This step uses the same network as the previous one.
+
+The configuration in ``omnetpp.ini`` is the following:
+
+.. literalinclude:: ../omnetpp.ini
+   :language: ini
+   :start-at: Step10
 
 Results
 -------

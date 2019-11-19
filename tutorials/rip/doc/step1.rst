@@ -10,7 +10,11 @@ by the :ned:`Ipv4NetworkConfigurator` module.
 The model
 ---------
 
-The configuration uses the following network:
+This step uses the following network:
+
+.. literalinclude:: ../RipNetworkA.ned
+   :language: ned
+   :start-at: RipNetworkA
 
 .. figure:: media/step1network.png
    :width: 80%
@@ -23,12 +27,12 @@ TODO: In the simulation, a host from one subnet will ping a host in
 another subnet. The ping packets will be routed via the routers, which
 use static routes assigned by :ned:`Ipv4NetworkConfigurator`.
 
-The configuration in is the following:
+The configuration in ``omnetpp.ini`` is the following:
 
 .. literalinclude:: ../omnetpp.ini
-   :start-at: Step1
-   :end-before: ----
    :language: ini
+   :start-at: Step1
+   :end-before: ------
 
 Results
 -------
@@ -46,5 +50,4 @@ Here is a video of ``host0`` pinging ``host6``:
    :width: 100%
 
 ..   <!--internal video recording, animation speed none, playback speed 2.138, zoom 0.77-->
-
 

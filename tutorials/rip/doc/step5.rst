@@ -13,7 +13,14 @@ The model
 TODO: how triggered updates work (maybe should be described in an
 earlier step?)
 
-TODO: the network and the config
+This step uses the same network as the previous one.
+
+The configuration in ``omnetpp.ini`` is the following:
+
+.. literalinclude:: ../omnetpp.ini
+   :language: ini
+   :start-at: Step5
+   :end-before: ------
 
 Results
 -------

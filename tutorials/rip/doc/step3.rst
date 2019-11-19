@@ -13,7 +13,19 @@ The model
 
 TODO: what is SplitHorizon
 
-TODO: the network and the config
+This step uses the same network as the previous one.
+
+The configuration in ``omnetpp.ini`` is the following:
+
+.. literalinclude:: ../omnetpp.ini
+   :language: ini
+   :start-at: Step3
+   :end-before: ------
+
+The scenario manager script:
+
+.. literalinclude:: ../scenario2.xml
+   :language: xml
 
 Results
 -------
