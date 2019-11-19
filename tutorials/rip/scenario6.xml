@@ -1,3 +1,4 @@
+<!-- scenario6.xml -->
 <scenario>
     <at t="50">
         <disconnect src-module="router2" src-gate="ethg$o[0]" />
