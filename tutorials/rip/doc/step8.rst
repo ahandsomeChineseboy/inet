@@ -46,3 +46,7 @@ on the image to enlarge):
 .. figure:: media/step8_1.png
    :width: 100%
    :align: center
+
+Sources:
+:download:`omnetpp.ini <../omnetpp.ini>`,
+:download:`RipNetworkD.ned <../RipNetworkD.ned>`

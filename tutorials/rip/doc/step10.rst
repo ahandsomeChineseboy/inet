@@ -26,3 +26,7 @@ The RIP messages are only sent among the routers, but not the hosts.
    :width: 100%
 
 ..   <!--internal video recording, animation speed none, playback speed 2.138, zoom 0.77-->
+
+Sources:
+:download:`omnetpp.ini <../omnetpp.ini>`,
+:download:`RipNetworkD.ned <../RipNetworkD.ned>`

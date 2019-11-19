@@ -51,3 +51,6 @@ Here is a video of ``host0`` pinging ``host6``:
 
 ..   <!--internal video recording, animation speed none, playback speed 2.138, zoom 0.77-->
 
+Sources:
+:download:`omnetpp.ini <../omnetpp.ini>`,
+:download:`RipNetworkA.ned <../RipNetworkA.ned>`

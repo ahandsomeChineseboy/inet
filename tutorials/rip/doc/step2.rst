@@ -39,8 +39,10 @@ Ping (basically the same as in step 1, so not sure it's needed):
 .. video:: media/step2_3_ping.mp4
    :width: 100%
 
-
-
 ..   <!--internal video recording, normal run from the end of the previous video until 51s, animation speed none, playback speed 2.138, max anim speed kludge in simtimetextfigure-->
 
 TODO: what happens
+
+Sources:
+:download:`omnetpp.ini <../omnetpp.ini>`,
+:download:`RipNetworkA.ned <../RipNetworkA.ned>`

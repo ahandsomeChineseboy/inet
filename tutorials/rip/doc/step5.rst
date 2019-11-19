@@ -39,3 +39,7 @@ scheduled update (at 60s).
 TODO: what happens
 
 TODO: screenshots of routing tables / RIP packets
+
+Sources:
+:download:`omnetpp.ini <../omnetpp.ini>`,
+:download:`RipNetworkB.ned <../RipNetworkB.ned>`

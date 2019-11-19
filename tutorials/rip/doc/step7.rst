@@ -55,3 +55,7 @@ route metrics increase incrementally (count-to-infinity):
 TODO: what happens
 
 TODO: screenshots of routing tables / RIP packets
+
+Sources:
+:download:`omnetpp.ini <../omnetpp.ini>`,
+:download:`RipNetworkD.ned <../RipNetworkD.ned>`

@@ -40,3 +40,8 @@ TODO: video
 TODO: what happens
 
 TODO: maybe routing tables and screenshots of RIP packets
+
+Sources:
+:download:`omnetpp.ini <../omnetpp.ini>`,
+:download:`RipNetworkA.ned <../RipNetworkA.ned>`,
+:download:`scenario2.xml <../scenario2.xml>`

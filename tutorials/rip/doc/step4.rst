@@ -101,3 +101,9 @@ TODO: what happens
 
 TODO: screenshots or routing tables / RIP packets
 
+Sources:
+:download:`omnetpp.ini <../omnetpp.ini>`,
+:download:`RipNetworkB.ned <../RipNetworkB.ned>`,
+:download:`scenario1.xml <../scenario1.xml>`,
+:download:`scenario5.xml <../scenario5.xml>`,
+:download:`scenario6.xml <../scenario6.xml>`

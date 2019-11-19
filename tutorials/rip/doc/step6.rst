@@ -86,3 +86,8 @@ and then it's dropped.
 TODO: what happens
 
 TODO: screenshots of routing tables / RIP packets
+
+Sources:
+:download:`omnetpp.ini <../omnetpp.ini>`,
+:download:`RipNetworkC.ned <../RipNetworkC.ned>`,
+:download:`scenario4.xml <../scenario4.xml>`
