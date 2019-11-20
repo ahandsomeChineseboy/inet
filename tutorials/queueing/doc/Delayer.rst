@@ -1,6 +1,9 @@
 Delayer
 =======
 
+This step demonstrates the :ned:`PacketDelayer` module, which delays packets for a configured
+amount of time.
+
 In this step, packets are produced periodically by an active packet source
 (:ned:`ActivePacketSource`). The produced packets are delayed (:ned:`PacketDelayer`) for a random
 amount of time. Finally, the packets are sent into a passive packet sink (:ned:`PassivePacketSink`).

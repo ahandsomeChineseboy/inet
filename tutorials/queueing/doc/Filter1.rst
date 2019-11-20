@@ -1,6 +1,9 @@
 Filter 1
 ========
 
+This step demonstrates the :ned:`ContentBasedFilter` module, which can filter packets according
+to their contents.
+
 In this step, packets are produced periodically by an active packet source
 (:ned:`ActivePacketSource`). The packets are consumed by a passive packet sink (:ned:`PassivePacketSink`).
 Packets are passed through from the source to the sink by a filter (:ned:`ContentBasedFilter`).
