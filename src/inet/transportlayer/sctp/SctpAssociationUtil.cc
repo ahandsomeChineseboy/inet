@@ -970,7 +970,7 @@ void SctpAssociation::sendCookieEcho(SctpInitAckChunk *initAckChunk)
 
     sctpcookieecho->setSrcPort(localPort);
     sctpcookieecho->setDestPort(remotePort);
-    SctpCookieEchoChunk *cookieEchoChunk = new SctpCookieEchoChunk();
+    SctpCookieEchoChunk *cookieEchoChunk = new SctpCookieEchoChunk("COOKIE_ECHO");
     cookieEchoChunk->setSctpChunkType(COOKIE_ECHO);
     int32 len = initAckChunk->getCookieArraySize();
     cookieEchoChunk->setCookieArraySize(len);
