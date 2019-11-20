@@ -23,6 +23,7 @@
 #include "inet/applications/base/ApplicationPacket_m.h"
 #include "inet/networklayer/ted/LinkStatePacket_m.h"
 #include "inet/networklayer/rsvpte/RsvpHelloMsg_m.h"
+#include <fstream>
 
 namespace inet {
 
@@ -187,17 +188,15 @@ void Chunk::serialize(MemoryOutputStream& stream, const Ptr<const Chunk>& chunk,
             EV_STATICCONTEXT;
             EV << orig << endl;
             EV << restored << endl;
-            std::stringstream origBuffer;
-            origBuffer << orig << endl;
-            std::stringstream restoredBuffer;
-            restoredBuffer << restored << endl;
-            std::string str("Serializer or deserializer not working properly, data currupted.\n" + origBuffer.str() + restoredBuffer.str());
-            char* error = const_cast<char*>(str.c_str());
-            for (uint16_t i = 0; i < std::strlen(error); ++i) {
-                if (error[i] == '\n')
-                    error[i] = ' ';
-            }
-            throw cRuntimeError(error);
+            std::ofstream one;
+            one.open("/home/marcell/1");
+            one << orig;
+            one.close();
+            std::ofstream two;
+            two.open("/home/marcell/2");
+            two << restored;
+            two.close();
+            system("meld /home/marcell/1 /home/marcell/2");
             ASSERT(false);
         }
     }
