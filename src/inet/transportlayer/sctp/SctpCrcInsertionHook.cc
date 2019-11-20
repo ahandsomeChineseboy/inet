@@ -63,10 +63,10 @@ void SctpCrcInsertion::insertCrc(const Protocol *networkProtocol, const L3Addres
             // if the CRC mode is computed, then compute the CRC and set it
             // this computation is delayed after the routing decision, see INetfilter hook
             sctpHeader->setCrc(0); // make sure that the CRC is 0 in the SCTP header before computing the CRC
-            MemoryOutputStream sctpPacketStream;
-            uint32 writtenBytes = 0;
-            uint8* tmp_buffer = SctpHeaderSerializer::serializeSctpHeaderIntoBuffer(sctpHeader, writtenBytes);
-            sctpHeader->setCrc(SctpChecksum::checksum(tmp_buffer, writtenBytes));
+            //MemoryOutputStream sctpPacketStream;
+            //uint32 writtenBytes = 0;
+            //uint8* tmp_buffer = SctpHeaderSerializer::serializeSctpHeaderIntoBuffer(sctpHeader, writtenBytes);
+            //sctpHeader->setCrc(SctpChecksum::checksum(tmp_buffer, writtenBytes));
             break;
         }
         default:
