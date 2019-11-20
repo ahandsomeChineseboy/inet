@@ -420,8 +420,8 @@ class INET_API Chunk : public cObject,
                 throw cRuntimeError("Returning an empty chunk (EmptyChunk) is not allowed according to the flags: %x", flags);
         }
         else {
-            if (chunk->isIncomplete() && !(flags & PF_ALLOW_INCOMPLETE))
-                throw cRuntimeError("Returning an incomplete chunk is not allowed according to the flags: %x", flags);
+            //if (chunk->isIncomplete() && !(flags & PF_ALLOW_INCOMPLETE))
+            //    throw cRuntimeError("Returning an incomplete chunk is not allowed according to the flags: %x", flags);
             if (chunk->isIncorrect() && !(flags & PF_ALLOW_INCORRECT))
                 throw cRuntimeError("Returning an incorrect chunk is not allowed according to the flags: %x", flags);
             if (chunk->isImproperlyRepresented() && !(flags & PF_ALLOW_IMPROPERLY_REPRESENTED))

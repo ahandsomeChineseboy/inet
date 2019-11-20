@@ -48,7 +48,7 @@ class INET_API FieldsChunk : public Chunk
         if (bytes != nullptr) {
         if (b(bytes->size() * 8).get() != b(chunkLength).get()) {
             std::cout << typeid(*this).name() << ": " << "b(bytes->size()): " << b(bytes->size() * 8).get() << " bits       " << "chunkLength: " << b(chunkLength).get() << " bits" << endl;
-            throw cRuntimeError("%s ; \"b(bytes->size() * 8) == b(chunkLength)\" does not hold in function 'setSerializedBytes' at ./inet/common/packet/chunk/FieldsChunk.h:51. chunkLength = %d bits ; bytes->size() = %d bits", typeid(*this).name(), b(chunkLength).get(), b(bytes->size() * 8).get());
+            //throw cRuntimeError("%s ; \"b(bytes->size() * 8) == b(chunkLength)\" does not hold in function 'setSerializedBytes' at ./inet/common/packet/chunk/FieldsChunk.h:51. chunkLength = %d bits ; bytes->size() = %d bits", typeid(*this).name(), b(chunkLength).get(), b(bytes->size() * 8).get());
         }}
         else
             delete serializedBytes;
