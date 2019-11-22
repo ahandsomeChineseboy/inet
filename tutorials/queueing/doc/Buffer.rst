@@ -1,10 +1,13 @@
 Buffer
 ======
 
+This step demonstrates the :ned:`PacketBuffer` module. The module stores packets on
+behalf of multiple queues, acting as a shared packet buffer for them.
+
 In this step, packets are produced periodically (randomly) by two active packet
 sources (:ned:`ActivePacketSource`). The packets are collected periodically (randomly)
-by two active packet sinks (:ned:`ActivePacketSink`). The sources and the sinkes are
-connected by packet queues (:ned:`PacketQueue`) and packets are stored in shared packet
+by two active packet sinks (:ned:`ActivePacketSink`). The sources and the sinks are
+connected by packet queues (:ned:`PacketQueue`) and packets are stored in a shared packet
 buffer (:ned:`PacketBuffer`). The packet buffer drops packets from the beginning of
 the buffer when it gets overloaded.
 

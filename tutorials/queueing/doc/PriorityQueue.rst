@@ -4,7 +4,7 @@ Priority Queue
 In this step, packets are produced periodically (randomly) by an active packet
 source (:ned:`ActivePacketSource`). The packets are collected periodically (randomly) by
 an active packet sink (:ned:`ActivePacketSink`). The source and the sink is connected
-by a priority queue with two inner queues (:ned:`PriorityQueue`) where packets are
+by a priority queue (:ned:`PriorityQueue`) with two inner queues (:ned:`PacketQueue`) where packets are
 stored temporarily.
 
 .. figure:: media/PriorityQueue.png

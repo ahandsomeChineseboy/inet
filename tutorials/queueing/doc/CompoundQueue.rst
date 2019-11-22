@@ -3,9 +3,8 @@ Compound Queue
 
 In this step, packets are produced periodically (randomly) by an active packet
 source (:ned:`ActivePacketSource`). The packets are collected periodically (randomly) by
+an active packet sink (ActivePacketSink). The source and the sink is connected
 by a compound priority queue (TestCompoundPacketQueue) where packets are stored temporarily.
-source (:ned:`ActivePacketSource`). The packets are collected periodically (randomly) by
-an active packet sink (:ned:`ActivePacketSink`). The source and the sink is connected
 This queue contains a classifier (:ned:`PacketClassifier`), two queues (:ned:`PacketQueue`),
 and a priorty scheduler (:ned:`PriorityScheduler`).
 

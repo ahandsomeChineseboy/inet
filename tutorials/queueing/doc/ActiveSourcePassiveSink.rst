@@ -1,5 +1,5 @@
-Active Source Passive Sink
-==========================
+Active Source - Passive Sink
+============================
 
 V1
 
