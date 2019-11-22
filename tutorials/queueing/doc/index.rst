@@ -36,6 +36,8 @@ Filters
 
 Classifiers and Schedulers
 
+V1
+
 .. toctree::
    :maxdepth: 1
 
@@ -44,6 +46,18 @@ Classifiers and Schedulers
    PriorityClassifier
    Scheduler
    MarkovScheduler
+   PriorityScheduler
+
+V2
+
+.. toctree::
+   :maxdepth: 1
+
+   Classifier
+   Scheduler
+   MarkovClassifier
+   MarkovScheduler
+   PriorityClassifier
    PriorityScheduler
 
 Markers and Meters
