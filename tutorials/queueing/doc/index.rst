@@ -23,6 +23,7 @@ Queues and Buffers
    CompoundQueue
    PriorityQueue
    Buffer
+   PriorityBuffer
 
 Filters
 
@@ -34,29 +35,52 @@ Filters
    OrdinalBasedDropper
    RedDropper
 
-Classifiers
+Classifiers and Schedulers
 
 .. toctree::
    :maxdepth: 1
 
    PriorityClassifier
+   MarkovClassifier
+   Scheduler
+   PriorityScheduler
+   MarkovScheduler
+
+Markers and Meters
+
+.. toctree::
+   :maxdepth: 1
+
+   Meter
+   Tagger
    Labeler
-   Burst1
-   Burst2
+
+Conditioners:
+
+.. toctree::
+   :maxdepth: 1
+
+   TokenBucket
+   LeakyBucket
+
+Multiplexer, demultiplexer, delayer, gate, duplicators (other queueing elements):
+
+.. toctree::
+   :maxdepth: 1
+
    Delayer
+   Multiplexer
    Demultiplexer
    Duplicator
+   OrdinalBasedDuplicator
    Gate1
    Gate2
-   LeakyBucket
-   Meter
-   Multiplexer
-   Network
-   OrdinalBasedDuplicator
-   PriorityBuffer
-   PriorityScheduler
-   Scheduler
    Server
-   Tagger
+
+Advanced:
+
+.. toctree::
+   :maxdepth: 1
+
    Telnet
-   TokenBucket
+   Network
