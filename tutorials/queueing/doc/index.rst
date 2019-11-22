@@ -19,10 +19,9 @@ Queues and Buffers
    :maxdepth: 1
 
    Queue
-   Classifier
+   Buffer
    CompoundQueue
    PriorityQueue
-   Buffer
    PriorityBuffer
 
 Filters
@@ -40,6 +39,7 @@ Classifiers and Schedulers
 .. toctree::
    :maxdepth: 1
 
+   Classifier
    PriorityClassifier
    MarkovClassifier
    Scheduler
