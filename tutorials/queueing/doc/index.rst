@@ -40,11 +40,11 @@ Classifiers and Schedulers
    :maxdepth: 1
 
    Classifier
-   PriorityClassifier
    MarkovClassifier
+   PriorityClassifier
    Scheduler
-   PriorityScheduler
    MarkovScheduler
+   PriorityScheduler
 
 Markers and Meters
 
@@ -55,29 +55,29 @@ Markers and Meters
    Tagger
    Labeler
 
-Conditioners:
+Conditioners
 
 .. toctree::
    :maxdepth: 1
 
-   TokenBucket
    LeakyBucket
+   TokenBucket
 
-Multiplexer, demultiplexer, delayer, gate, duplicators (other queueing elements):
+Multiplexer, demultiplexer, delayer, gate, duplicators (other queueing elements)
 
 .. toctree::
    :maxdepth: 1
 
    Delayer
-   Multiplexer
-   Demultiplexer
    Duplicator
    OrdinalBasedDuplicator
+   Server
    Gate1
    Gate2
-   Server
+   Multiplexer
+   Demultiplexer
 
-Advanced:
+Advanced
 
 .. toctree::
    :maxdepth: 1
