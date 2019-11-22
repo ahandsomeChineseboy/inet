@@ -96,7 +96,7 @@ network BufferTutorialStep
 
 //-------------------------------------------------
 
-network Burst1TutorialStep
+network MarkovSchedulerTutorialStep
 {
     @display("bgb=600,300");
     submodules:
@@ -121,7 +121,7 @@ network Burst1TutorialStep
 //-------------------------------------------------
 
 
-network Burst2TutorialStep
+network MarkovClassifierTutorialStep
 {
     @display("bgb=600,300");
     submodules:

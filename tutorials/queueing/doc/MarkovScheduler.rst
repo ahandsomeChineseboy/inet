@@ -1,10 +1,10 @@
-Burst 1
-=======
+Markov Scheduler
+================
 
 In this step, packets are periodically (randomly) produced by two active sources
 (:ned:`ActivePacketSource`). One source produces packets with a slower rate while the other
 source uses a faster rate. The two packet sources are combined using a Markov
-chain with random transition matrix and random wait intervals. The packets are
+chain (:ned:`MarkovScheduler`) with random transition matrix and random wait intervals. The packets are
 consumed by a single passive sink (:ned:`PassivePacketSink`).
 
 .. figure:: media/Burst1.png
