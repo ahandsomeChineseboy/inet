@@ -171,7 +171,7 @@ network ClassifierTutorialStep
 //-------------------------------------------------
 
 
-module ExampleCompoundPacketQueue extends CompoundPacketQueue
+module ExampleCompoundPriorityQueue extends CompoundPacketQueue
 {
     parameters:
         @class(::inet::queueing::CompoundPacketQueue);
@@ -207,7 +207,7 @@ network CompoundPacketQueueTutorialStep
         producer: ActivePacketSource {
             @display("p=100,100");
         }
-        queue: ExampleCompoundPacketQueue {
+        queue: ExampleCompoundPriorityQueue {
             @display("p=300,100");
         }
         collector: ActivePacketSink {
