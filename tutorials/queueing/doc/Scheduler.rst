@@ -1,6 +1,8 @@
 Scheduler
 =========
 
+This step demonstrates the Weighted Round-robin Scheduler (:ned:`WrrScheduler`) module.
+
 In this step, packets are collected periodically by an active packet sink
 (:ned:`ActivePacketSink`). The packets are produced by two passive packet sources
 (:ned:`PassivePacketSource`). The single sink is connected to the two sources using a
