@@ -1,13 +1,13 @@
 Active Source - Passive Sink
 ============================
 
-V1
+.. V1
 
-In this step, packets are produced periodically by an active packet source
-(:ned:`ActivePacketSource`). The packets are consumed by a passive packet sink
-(:ned:`PassivePacketSink`).
+   In this step, packets are produced periodically by an active packet source
+   (:ned:`ActivePacketSource`). The packets are consumed by a passive packet sink
+   (:ned:`PassivePacketSink`).
 
-V2
+   V2
 
 This step demonstrates the :ned:`ActivePacketSource` and :ned:`PassivePacketSink` modules.
 Packets are produced periodically by the active packet source

@@ -1,5 +1,8 @@
-Ordinal Based Dropper
+Ordinal-based Dropper
 =====================
+
+This step demonstrates the :ned:`OrdinalBasedDropper` module. The module drops packets based
+on the ordinal number of incoming packets.
 
 In this step, packets are produced periodically by an active packet source
 (:ned:`ActivePacketSource`). The packets are consumed by a passive packet sink (:ned:`PassivePacketSink`).

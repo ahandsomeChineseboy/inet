@@ -1,6 +1,11 @@
 Priority Queue
 ==============
 
+This step demonstrates the :ned:`PriorityQueue` module. The module contains a configurable number
+of :ned:`PacketQueue`'s. A :ned:`PacketClassifier` module classifies packets into the queues
+according to the configured packet classifier function. A :ned:`PriorityScheduler` pops packets
+from the first non-empty queue, thus earlier queues have a priority over the later ones.
+
 In this step, packets are produced periodically (randomly) by an active packet
 source (:ned:`ActivePacketSource`). The packets are collected periodically (randomly) by
 an active packet sink (:ned:`ActivePacketSink`). The source and the sink is connected
