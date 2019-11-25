@@ -1,5 +1,5 @@
-Telnet
-======
+Telnet Traffic
+==============
 
 This step demonstrates a telnet client (TelnetClientTraffic) and a telnet server (TelnetServerTraffic)
 module built using queueing components.

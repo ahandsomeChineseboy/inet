@@ -1,7 +1,7 @@
-Compound Queue
-==============
+Building Complex Queues via Composition
+=======================================
 
-This step demonstrates a compound priority queue built from queueing components.
+This step demonstrates a compound priority queue (ExampleCompoundPriorityQueue) built from queueing components.
 The compound queue contains two packet queues; a classifier pushes packets to the queues
 in a round-robin fashion; a priority scheduler pops packets
 from the first non-empty queue, thus the first queue has priority over the second.

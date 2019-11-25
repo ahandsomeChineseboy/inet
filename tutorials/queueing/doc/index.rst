@@ -10,8 +10,6 @@ Sources and Sinks
 
    ActiveSourcePassiveSink
    PassiveSourceActiveSink
-   QueueFiller
-   RequestResponse
 
 Queues and Buffers
 
@@ -20,11 +18,36 @@ Queues and Buffers
 
    Queue
    Buffer
-   CompoundQueue
-   PriorityQueue
-   PriorityBuffer
 
-Filters
+Classifying Packets from One Input to Multiple Outputs
+
+.. toctree::
+   :maxdepth: 1
+
+   GenericClassifier
+   WrrClassifier
+   MarkovClassifier
+   PriorityClassifier
+
+Schedulers
+
+.. toctree::
+   :maxdepth: 1
+
+   Scheduler
+   MarkovScheduler
+   PriorityScheduler
+
+Advanced Queues and Buffers
+
+.. toctree::
+   :maxdepth: 1
+
+   CompoundQueue
+   PriorityBuffer
+   PriorityQueue
+
+Filtering and Dropping Packets
 
 .. toctree::
    :maxdepth: 1
@@ -34,31 +57,23 @@ Filters
    OrdinalBasedDropper
    RedDropper
 
-Classifiers and Schedulers
-
-V1
+Actively Serving Packets from a Passive Source
 
 .. toctree::
    :maxdepth: 1
 
-   Classifier
-   MarkovClassifier
-   PriorityClassifier
-   Scheduler
-   MarkovScheduler
-   PriorityScheduler
+   Server
+   TokenBasedServer
 
-V2
+Generating Tokens for a :ned:`TokenBasedServer`
 
 .. toctree::
    :maxdepth: 1
 
-   Classifier
-   Scheduler
-   MarkovClassifier
-   MarkovScheduler
-   PriorityClassifier
-   PriorityScheduler
+   TimeBasedTokenGenerator
+   PacketBasedTokenGenerator
+   QueueBasedTokenGenerator
+   SignalBasedTokenGenerator
 
 Markers and Meters
 
@@ -69,7 +84,7 @@ Markers and Meters
    Tagger
    Labeler
 
-Conditioners
+Traffic Conditioning
 
 .. toctree::
    :maxdepth: 1
@@ -77,21 +92,28 @@ Conditioners
    LeakyBucket
    TokenBucket
 
-Multiplexer, demultiplexer, delayer, gate, duplicators (other queueing elements)
+Other Generic Elements
 
 .. toctree::
    :maxdepth: 1
 
    Delayer
-   Duplicator
-   OrdinalBasedDuplicator
-   Server
-   Gate1
-   Gate2
    Multiplexer
    Demultiplexer
+   Gate1
+   Gate2
+   Duplicator
+   OrdinalBasedDuplicator
 
-Advanced
+Advanced Sources and Sinks
+
+.. toctree::
+   :maxdepth: 1
+
+   QueueFiller
+   RequestResponse
+
+Some Complex Examples
 
 .. toctree::
    :maxdepth: 1

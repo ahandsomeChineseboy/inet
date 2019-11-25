@@ -1,5 +1,5 @@
-Delayer
-=======
+Delaying Packets
+================
 
 This step demonstrates the :ned:`PacketDelayer` module, which delays packets for a configured
 amount of time.

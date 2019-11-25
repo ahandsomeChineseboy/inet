@@ -1,5 +1,5 @@
-Filter 2
-========
+Filtering an Active Sink
+========================
 
 This step demonstrates the :ned:`ContentBasedFilter` module, which can filter packets according
 to their contents.

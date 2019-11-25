@@ -1,5 +1,5 @@
-Gate2
-=====
+Gate with an Active Sink
+========================
 
 In this step, packets are collected periodically by an active packet sink
 (:ned:`ActivePacketSink`). The packets pass through a packet gate if it's open,

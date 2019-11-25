@@ -1,5 +1,5 @@
-Gate1
-=====
+Gate with an Active Source
+==========================
 
 In this step, packets are produced periodically by an active packet source
 (:ned:`ActivePacketSource`). The packets pass through a packet gate if it's open,

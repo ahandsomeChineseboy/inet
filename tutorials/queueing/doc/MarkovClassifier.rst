@@ -1,5 +1,5 @@
-Markov Classifier
-=================
+Markov Chain based Classifier
+=============================
 
 In this step, packets are periodically (randomly) collected by two active sinks
 (:ned:`ActivePacketSink`). One sink collects packets with a slower rate while the other

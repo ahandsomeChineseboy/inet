@@ -1,5 +1,5 @@
-Classifier
-==========
+Weighted Round-robin Classifier
+===============================
 
 This step demonstrates the Weighted Round-robin Classifier (:ned:`WrrClassifier`).
 

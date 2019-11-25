@@ -2,7 +2,7 @@ Meter
 =====
 
 This step demonstrates the :ned:`RateMeter` and :ned:`RateLimiter` modules.
-The meter measures the datarate of the incoming stream of packets,
+The meter measures the data rate of the incoming stream of packets,
 and attaches a rate tag to each packet. The limiter module, based on the rate tag,
 limits the outgoing data rate to a configurable value.
 

@@ -1,5 +1,5 @@
-Filter 1
-========
+Filtering an Active Source
+==========================
 
 This step demonstrates the :ned:`ContentBasedFilter` module, which can filter packets according
 to their contents.
