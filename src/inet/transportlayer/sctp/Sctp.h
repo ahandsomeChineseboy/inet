@@ -229,8 +229,6 @@ class INET_API Sctp : public cSimpleModule
     virtual void finish() override;
     virtual void send_to_ip(Packet *msg);
 
-    uint64_t calculateChunkLength(Ptr<SctpHeader>& sctpMsg);
-
     AssocStat *getAssocStat(uint32 assocId)
     {
         auto found = assocStatMap.find(assocId);
