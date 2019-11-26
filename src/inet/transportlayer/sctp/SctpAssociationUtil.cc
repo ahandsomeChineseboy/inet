@@ -1135,7 +1135,7 @@ void SctpAssociation::sendShutdownAck(const L3Address& dest)
 
         sctpshutdownack->setSrcPort(localPort);
         sctpshutdownack->setDestPort(remotePort);
-        SctpShutdownAckChunk *shutdownAckChunk = new SctpShutdownAckChunk();
+        SctpShutdownAckChunk *shutdownAckChunk = new SctpShutdownAckChunk("SHUTDOWN_ACK");
         shutdownAckChunk->setSctpChunkType(SHUTDOWN_ACK);
         shutdownAckChunk->setByteLength(SCTP_COOKIE_ACK_LENGTH);
         sctpshutdownack->insertSctpChunks(shutdownAckChunk);
@@ -1161,7 +1161,7 @@ void SctpAssociation::sendShutdownComplete()
 
     sctpshutdowncomplete->setSrcPort(localPort);
     sctpshutdowncomplete->setDestPort(remotePort);
-    SctpShutdownCompleteChunk *shutdownCompleteChunk = new SctpShutdownCompleteChunk();
+    SctpShutdownCompleteChunk *shutdownCompleteChunk = new SctpShutdownCompleteChunk("SHUTDOWN_COMPLETE");
     shutdownCompleteChunk->setSctpChunkType(SHUTDOWN_COMPLETE);
     shutdownCompleteChunk->setTBit(0);
     shutdownCompleteChunk->setByteLength(SCTP_SHUTDOWN_ACK_LENGTH);
@@ -1210,7 +1210,7 @@ void SctpAssociation::sendShutdown()
 
     msg->setSrcPort(localPort);
     msg->setDestPort(remotePort);
-    SctpShutdownChunk *shutdownChunk = new SctpShutdownChunk();
+    SctpShutdownChunk *shutdownChunk = new SctpShutdownChunk("SHUTDOWN");
     shutdownChunk->setSctpChunkType(SHUTDOWN);
     //shutdownChunk->setCumTsnAck(state->lastTsnAck);
     shutdownChunk->setCumTsnAck(state->gapList.getCumAckTsn());
@@ -1629,10 +1629,11 @@ SctpSackChunk *SctpAssociation::createSack()
     SctpSackChunk *sackChunk = new SctpSackChunk();
     if (state->nrSack == true) {
         sackChunk->setSctpChunkType(NR_SACK);
-       // sackChunk->setName("NR_SACK");
+        sackChunk->setName("NR_SACK");
     }
     else {
         sackChunk->setSctpChunkType(SACK);
+        sackChunk->setName("SACK");
     }
     sackChunk->setCumTsnAck(state->gapList.getCumAckTsn());
     EV_DEBUG << "SACK: set cumTsnAck to " << sackChunk->getCumTsnAck() << endl;
