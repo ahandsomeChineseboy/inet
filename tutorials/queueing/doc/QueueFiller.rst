@@ -1,7 +1,9 @@
-Making sure a Queue is Always Filled
 Preventing a Queue from Becoming Empty
-Ensure a Queue is Never Empty
-=============
+======================================
+
+.. Making sure a Queue is Always Filled
+   Preventing a Queue from Becoming Empty
+   Ensure a Queue is Never Empty
 
 This step demonstrates the :ned:`QueueFiller` module, which creates packets whenever
 a connected queue becomes empty. The module can be used to saturate a channel. TODO

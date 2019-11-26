@@ -1,5 +1,7 @@
-Request Response
-================
+Request/Response Based Communication
+====================================
+
+.. Request Consumer and Response Producer
 
 This test contains a simplified version of a client/server and a request/response
 based communication.

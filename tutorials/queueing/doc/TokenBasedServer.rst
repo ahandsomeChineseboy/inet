@@ -1,5 +1,5 @@
-TokenBasedServer
-================
+Token-Based Server
+==================
 
 The :ned:`TokenBasedServer` module processes incoming packets when it has enough tokens.
 A configured amount of tokens are lost when a packet is processed.

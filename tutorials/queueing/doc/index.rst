@@ -65,7 +65,7 @@ Actively Serving Packets from a Passive Source
    Server
    TokenBasedServer
 
-Generating Tokens for a :ned:`TokenBasedServer`
+Generating Tokens for a Token-based Server
 
 .. toctree::
    :maxdepth: 1

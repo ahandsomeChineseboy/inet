@@ -1,7 +1,8 @@
-Buffer
-Storing packets in a buffer shared among multiple queues
-Storing packets on behalf of multiple queues
-======
+Storing Packets on Behalf of Multiple Queues
+============================================
+
+.. Buffer
+   Storing packets in a buffer shared among multiple queues
 
 This step demonstrates the :ned:`PacketBuffer` module. The module stores packets on
 behalf of multiple queues, acting as a shared packet buffer for them.

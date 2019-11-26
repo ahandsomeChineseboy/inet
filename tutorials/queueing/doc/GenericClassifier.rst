@@ -1,2 +1,2 @@
-GenericClassifier
-=================
+Generic Classifier
+==================
