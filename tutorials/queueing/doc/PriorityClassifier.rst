@@ -4,6 +4,8 @@ Priority Classifier
 This step demonstrates the :ned:`PriorityClassifier` module. The module pushes packets
 to the first non-full connected queue.
 
+The :ned:`PriorityClassifier` module pushes packets to the first non-full connected queue
+
 In this step, packets are produced periodically by an active packet source
 (:ned:`ActivePacketSource`). The packets are consumed by two active packet sinks
 (:ned:`ActivePacketSink`). The sinks are connected to FIFO queues (:ned:`PacketQueue`) with
