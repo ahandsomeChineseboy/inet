@@ -1,8 +1,10 @@
-Packet Queue
-============
+Enqueueing Packets
+==================
 
 This step demonstrates the :ned:`PacketQueue` module, which stores a configurable
 number of packets.
+
+The :ned:`PacketQueue` module stores a configurable number of packets.
 
 In this step, packets are produced periodically (randomly) by an active packet
 source (:ned:`ActivePacketSource`). The packets are collected periodically (randomly) by

@@ -34,6 +34,7 @@ import inet.queueing.scheduler.MarkovScheduler;
 import inet.queueing.scheduler.PriorityScheduler;
 import inet.queueing.scheduler.WrrScheduler;
 import inet.queueing.server.PacketServer;
+import inet.queueing.server.TokenBasedServer;
 import inet.queueing.shaper.LeakyBucket;
 import inet.queueing.shaper.TokenBucket;
 import inet.queueing.sink.ActivePacketSink;
@@ -44,6 +45,8 @@ import inet.queueing.source.PassivePacketSource;
 import inet.queueing.source.QueueFiller;
 import inet.queueing.source.ResponseProducer;
 import inet.queueing.tokengenerator.PacketBasedTokenGenerator;
+import inet.queueing.tokengenerator.QueueBasedTokenGenerator;
+import inet.queueing.tokengenerator.SignalBasedTokenGenerator;
 import inet.queueing.tokengenerator.TimeBasedTokenGenerator;
 
 
@@ -883,6 +886,126 @@ network ServerTutorialStep
 
 //-------------------------------------------------
 
+network TokenBasedServerTutorialStep
+{
+    @display("bgb=600,200");
+    submodules:
+        provider: PassivePacketSource {
+            @display("p=100,100");
+        }
+        server: TokenBasedServer {
+            @display("p=300,100");
+        }
+        consumer: PassivePacketSink {
+            @display("p=500,100");
+        }
+    connections allowunconnected:
+        provider.out --> server.in;
+        server.out --> consumer.in;
+}
+
+//-------------------------------------------------
+
+network TimeBasedTokenGeneratorTutorialStep
+{
+    @display("bgb=600,300");
+    submodules:
+        provider: PassivePacketSource {
+            @display("p=100,100");
+        }
+        server: TokenBasedServer {
+            @display("p=300,100");
+        }
+        consumer: PassivePacketSink {
+            @display("p=500,100");
+        }
+        tokenGenerator: TimeBasedTokenGenerator {
+            @display("p=100,200");
+        }
+    connections allowunconnected:
+        provider.out --> server.in;
+        server.out --> consumer.in;
+}
+
+//-------------------------------------------------
+
+network PacketBasedTokenGeneratorTutorialStep
+{
+    @display("bgb=600,300");
+    submodules:
+        producer: ActivePacketSource {
+            @display("p=100,200");
+        }
+        provider: PassivePacketSource {
+            @display("p=100,150");
+        }
+        server: TokenBasedServer {
+            @display("p=300,100");
+        }
+        consumer: PassivePacketSink {
+            @display("p=500,100");
+        }
+        tokenGenerator: PacketBasedTokenGenerator {
+            @display("p=200,200");
+        }
+    connections allowunconnected:
+        producer.out --> tokenGenerator.in;
+        provider.out --> server.in;
+        server.out --> consumer.in;
+}
+
+//-------------------------------------------------
+
+network QueueBasedTokenGeneratorTutorialStep
+{
+    @display("bgb=600,200");
+    submodules:
+        provider: PassivePacketSource {
+            @display("p=100,100");
+        }
+        server: TokenBasedServer {
+            @display("p=150,150");
+        }
+        queue: PacketQueue {
+            @display("p=300,100");
+        }
+        collector: ActivePacketSink {
+            @display("p=500,100");
+        }
+        tokenGenerator: QueueBasedTokenGenerator {
+            @display("p=100,300");
+        }
+    connections allowunconnected:
+        provider.out --> server.in;
+        server.out --> queue.in;
+        queue.out --> collector.in;
+}
+
+//-------------------------------------------------
+
+network SignalBasedTokenGeneratorTutorialStep
+{
+    @display("bgb=600,300");
+    submodules:
+        provider: PassivePacketSource {
+            @display("p=100,100");
+        }
+        server: TokenBasedServer {
+            @display("p=300,100");
+        }
+        consumer: PassivePacketSink {
+            @display("p=500,100");
+        }
+        tokenGenerator: SignalBasedTokenGenerator {
+            @display("p=100,200");
+        }
+    connections allowunconnected:
+        provider.out --> server.in;
+        server.out --> consumer.in;
+}
+
+//-------------------------------------------------
+
 
 network TaggerTutorialStep
 {
@@ -1042,4 +1165,3 @@ network TokenBucketTutorialStep
         bucket.out --> consumer.in;
 }
 
-//-------------------------------------------------
