@@ -1045,7 +1045,7 @@ void SctpAssociation::sendHeartbeat(const SctpPathVariables *path)
 
     sctpHeartbeatbeat->setSrcPort(localPort);
     sctpHeartbeatbeat->setDestPort(remotePort);
-    SctpHeartbeatChunk *heartbeatChunk = new SctpHeartbeatChunk();
+    SctpHeartbeatChunk *heartbeatChunk = new SctpHeartbeatChunk("HEARTBEAT");
     heartbeatChunk->setSctpChunkType(HEARTBEAT);
     heartbeatChunk->setRemoteAddr(path->remoteAddress);
     heartbeatChunk->setTimeField(simTime());
@@ -1072,7 +1072,7 @@ void SctpAssociation::sendHeartbeatAck(const SctpHeartbeatChunk *heartbeatChunk,
     sctpHeartbeatAck->setChunkLength(B(SCTP_COMMON_HEADER));
     sctpHeartbeatAck->setSrcPort(localPort);
     sctpHeartbeatAck->setDestPort(remotePort);
-    SctpHeartbeatAckChunk *heartbeatAckChunk = new SctpHeartbeatAckChunk();
+    SctpHeartbeatAckChunk *heartbeatAckChunk = new SctpHeartbeatAckChunk("HEARTBEAT_ACK");
     heartbeatAckChunk->setSctpChunkType(HEARTBEAT_ACK);
     heartbeatAckChunk->setRemoteAddr(heartbeatChunk->getRemoteAddr());
     heartbeatAckChunk->setTimeField(heartbeatChunk->getTimeField());
@@ -1108,7 +1108,7 @@ void SctpAssociation::sendCookieAck(const L3Address& dest)
 
     sctpcookieack->setSrcPort(localPort);
     sctpcookieack->setDestPort(remotePort);
-    SctpCookieAckChunk *cookieAckChunk = new SctpCookieAckChunk();
+    SctpCookieAckChunk *cookieAckChunk = new SctpCookieAckChunk("COOKIE_ACK");
     cookieAckChunk->setSctpChunkType(COOKIE_ACK);
     cookieAckChunk->setByteLength(SCTP_COOKIE_ACK_LENGTH);
     if (state->auth && state->peerAuth && typeInChunkList(COOKIE_ACK)) {
@@ -2114,7 +2114,7 @@ void SctpAssociation::pushUlp()
 
 SctpDataChunk *SctpAssociation::transformDataChunk(SctpDataVariables *chunk)
 {
-    SctpDataChunk *dataChunk = new SctpDataChunk();
+    SctpDataChunk *dataChunk = new SctpDataChunk("DATA");
     SctpSimpleMessage *msg = check_and_cast<SctpSimpleMessage *>(chunk->userData->dup());
     dataChunk->setSctpChunkType(DATA);
     dataChunk->setBBit(chunk->bbit);
