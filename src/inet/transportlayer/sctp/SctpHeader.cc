@@ -245,6 +245,17 @@ uint64_t SctpHeader::calculateChunkLength() const {
                      chunkLength += initAckChunk->getStateCookie()->getLength();
                  break;
              }
+             case SACK: {
+                 SctpSackChunk *sackChunk = check_and_cast<SctpSackChunk *>(chunk);
+                 chunkLength += 16;
+                 chunkLength += 8;   // FIXME: there is no sack seq num in rfc4960
+                 chunkLength += 8;  // FIXME: there is no dac packets received in rfc4960
+                 uint16_t numgaps = sackChunk->getNumGaps();
+                 chunkLength += numgaps * 4;
+                 uint16_t numdups = sackChunk->getNumDupTsns();
+                 chunkLength += numdups * 4;
+                 break;
+             }
              case NR_SACK: {
                  SctpSackChunk *sackChunk = check_and_cast<SctpSackChunk *>(chunk);
                  chunkLength += 20;
@@ -281,6 +292,7 @@ uint64_t SctpHeader::calculateChunkLength() const {
                      if (addr.getType() == L3Address::IPv6)
                          chunkLength += 24;
                  }
+                 chunkLength += 9;  // FIXME: writing simtime
                  break;
              }
              case ABORT: {
@@ -432,7 +444,7 @@ uint64_t SctpHeader::calculateChunkLength() const {
                  break;
              }
              default:
-                 throw new cRuntimeError("TODO: unknown chunktype in outgoing packet on external interface! Implement it!");
+                 throw new cRuntimeError("Unknown chunk type %d in outgoing packet on external interface!", chunkType);
          }
      }
      //this->setChunkLength(B(chunkLength));
