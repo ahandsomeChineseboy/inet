@@ -759,6 +759,7 @@ void SctpAssociation::sendInit()
     printSctpPathMap();
     EV_INFO << getFullPath() << " sendInit: localVTag=" << localVTag << " peerVTag=" << peerVTag << "\n";
     Packet *fp = new Packet("INIT");
+    sctpmsg->setChunkLength(B(sctpmsg->calculateChunkLength()));
     EV_INFO << "Length sctpmsg " << B(sctpmsg->getChunkLength()).get() << endl;
     sendToIP(fp, sctpmsg);
     sctpMain->assocList.push_back(this);
@@ -775,6 +776,7 @@ void SctpAssociation::retransmitInit()
     sctpinit = check_and_cast<SctpInitChunk *>(state->initChunk->dup());
     sctpinit->setSctpChunkType(INIT);
     sctpmsg->insertSctpChunks(sctpinit);
+    sctpmsg->setChunkLength(B(sctpmsg->calculateChunkLength()));
 
     Packet *fp = new Packet("INIT RTX");
     sendToIP(fp, sctpmsg);
@@ -949,6 +951,7 @@ void SctpAssociation::sendInitAck(SctpInitChunk *initChunk)
     outboundStreams = ((initChunk->getNoInStreams() < initAckChunk->getNoOutStreams()) ? initChunk->getNoInStreams() : initAckChunk->getNoOutStreams());
     (this->*ssFunctions.ssInitStreams)(inboundStreams, outboundStreams);
     sctpinitack->insertSctpChunks(initAckChunk);
+    sctpinitack->setChunkLength(B(sctpinitack->calculateChunkLength()));
     Packet *fp = new Packet("INIT-ACK");
     if (fsm->getState() == SCTP_S_CLOSED) {
         sendToIP(fp, sctpinitack, state->initialPrimaryPath);
@@ -1006,6 +1009,7 @@ void SctpAssociation::sendCookieEcho(SctpInitAckChunk *initAckChunk)
     }
 
     sctpcookieecho->insertSctpChunks(cookieEchoChunk);
+    sctpcookieecho->setChunkLength(B(sctpcookieecho->calculateChunkLength()));
     Packet *fp = new Packet("COOKIE-ECHO");
     sendToIP(fp, sctpcookieecho);
 }
@@ -1026,6 +1030,7 @@ void SctpAssociation::retransmitCookieEcho()
         it->second.numAuthChunksSent++;
     }
     sctpmsg->insertSctpChunks(cookieEchoChunk);
+    sctpmsg->setChunkLength(B(sctpmsg->calculateChunkLength()));
 
     EV_INFO << "retransmitCookieEcho localAddr=" << localAddr << "     remoteAddr" << remoteAddr << "\n";
     Packet *fp = new Packet("COOKIE-ECHO RTX");
@@ -1052,6 +1057,7 @@ void SctpAssociation::sendHeartbeat(const SctpPathVariables *path)
         it->second.numAuthChunksSent++;
     }
     sctpHeartbeatbeat->insertSctpChunks(heartbeatChunk);
+    sctpHeartbeatbeat->setChunkLength(B(sctpHeartbeatbeat->calculateChunkLength()));
     EV_INFO << "sendHeartbeat: sendToIP to " << path->remoteAddress << endl;
     Packet *fp = new Packet("HEARTBEAT");
     sendToIP(fp, sctpHeartbeatbeat, path->remoteAddress);
@@ -1085,6 +1091,7 @@ void SctpAssociation::sendHeartbeatAck(const SctpHeartbeatChunk *heartbeatChunk,
         it->second.numAuthChunksSent++;
     }
     sctpHeartbeatAck->insertSctpChunks(heartbeatAckChunk);
+    sctpHeartbeatAck->setChunkLength(B(sctpHeartbeatAck->calculateChunkLength()));
 
     EV_INFO << "sendHeartbeatAck: sendToIP from " << src << " to " << dest << endl;
     Packet *fp = new Packet("HEARTBEAT-ACK");
@@ -1111,6 +1118,7 @@ void SctpAssociation::sendCookieAck(const L3Address& dest)
         it->second.numAuthChunksSent++;
     }
     sctpcookieack->insertSctpChunks(cookieAckChunk);
+    sctpcookieack->setChunkLength(B(sctpcookieack->calculateChunkLength()));
     Packet *fp = new Packet("COOKIE-ACK");
     sendToIP(fp, sctpcookieack, dest);
 }
@@ -1131,6 +1139,7 @@ void SctpAssociation::sendShutdownAck(const L3Address& dest)
         shutdownAckChunk->setSctpChunkType(SHUTDOWN_ACK);
         shutdownAckChunk->setByteLength(SCTP_COOKIE_ACK_LENGTH);
         sctpshutdownack->insertSctpChunks(shutdownAckChunk);
+        sctpshutdownack->setChunkLength(B(sctpshutdownack->calculateChunkLength()));
         state->initRexmitTimeout = SCTP_TIMEOUT_INIT_REXMIT;
         state->initRetransCounter = 0;
         stopTimer(T2_ShutdownTimer);
@@ -1157,6 +1166,7 @@ void SctpAssociation::sendShutdownComplete()
     shutdownCompleteChunk->setTBit(0);
     shutdownCompleteChunk->setByteLength(SCTP_SHUTDOWN_ACK_LENGTH);
     sctpshutdowncomplete->insertSctpChunks(shutdownCompleteChunk);
+    sctpshutdowncomplete->setChunkLength(B(sctpshutdowncomplete->calculateChunkLength()));
     Packet *fp = new Packet("SHUTDOWN-COMPLETE");
     sendToIP(fp, sctpshutdowncomplete);
 }
@@ -1182,6 +1192,7 @@ void SctpAssociation::sendAbort(uint16 tBit)
         it->second.numAuthChunksSent++;
     }
     msg->insertSctpChunks(abortChunk);
+    msg->setChunkLength(B(msg->calculateChunkLength()));
     if (state->resetChunk != nullptr) {
         delete state->resetChunk;
     }
@@ -1218,6 +1229,7 @@ void SctpAssociation::sendShutdown()
     startTimer(T2_ShutdownTimer, state->initRexmitTimeout);
     state->shutdownChunk = check_and_cast<SctpShutdownChunk *>(shutdownChunk->dup());
     msg->insertSctpChunks(shutdownChunk);
+    msg->setChunkLength(B(msg->calculateChunkLength()));
     Packet *fp = new Packet("SHUTDOWN");
     sendToIP(fp, msg, remoteAddr);
     performStateTransition(SCTP_E_NO_MORE_OUTSTANDING);
@@ -1230,6 +1242,7 @@ void SctpAssociation::retransmitShutdown()
     SctpShutdownChunk *shutdownChunk;
     shutdownChunk = check_and_cast<SctpShutdownChunk *>(state->shutdownChunk->dup());
     sctpmsg->insertSctpChunks(shutdownChunk);
+    sctpmsg->setChunkLength(B(sctpmsg->calculateChunkLength()));
 
     EV_INFO << "retransmitShutdown localAddr=" << localAddr << "  remoteAddr" << remoteAddr << "\n";
 
@@ -1244,6 +1257,7 @@ void SctpAssociation::retransmitShutdownAck()
     SctpShutdownAckChunk *shutdownAckChunk;
     shutdownAckChunk = check_and_cast<SctpShutdownAckChunk *>(state->shutdownAckChunk->dup());
     sctpmsg->insertSctpChunks(shutdownAckChunk);
+    sctpmsg->setChunkLength(B(sctpmsg->calculateChunkLength()));
 
     EV_INFO << "retransmitShutdownAck localAddr=" << localAddr << "  remoteAddr" << remoteAddr << "\n";
 
@@ -1859,6 +1873,8 @@ void SctpAssociation::sendSack()
         it->second.numAuthChunksSent++;
     }
     sctpmsg->insertSctpChunks(sackChunk);
+    sctpmsg->setChunkLength(B(sctpmsg->calculateChunkLength()));
+
 
     sendSACKviaSelectedPath(sctpmsg);
 }
@@ -1902,6 +1918,7 @@ void SctpAssociation::sendInvalidStreamError(uint16 sid)
         it->second.numAuthChunksSent++;
     }
     sctpmsg->insertSctpChunks(sackChunk);
+    sctpmsg->setChunkLength(B(sctpmsg->calculateChunkLength()));
     sendSACKviaSelectedPath(sctpmsg);
 }
 
@@ -1918,6 +1935,7 @@ void SctpAssociation::sendHMacError(const uint16 id)
     errorChunk->setByteLength(4);
     errorChunk->addParameters(cause);
     sctpmsg->insertSctpChunks(errorChunk);
+    sctpmsg->setChunkLength(B(sctpmsg->calculateChunkLength()));
 }
 
 void SctpAssociation::putInDeliveryQ(uint16 sid)

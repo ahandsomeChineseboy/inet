@@ -155,6 +155,7 @@ void SctpAssociation::sendAsconf(const char *type, const bool remote)
             it->second.numAuthChunksSent++;
         }
         sctpAsconf->insertSctpChunks(asconfChunk);
+        sctpAsconf->setChunkLength(B(sctpAsconf->calculateChunkLength()));
 
         state->asconfChunk = check_and_cast<SctpAsconfChunk *>(asconfChunk->dup());
        // state->asconfChunk->setName("STATE-ASCONF");
@@ -182,6 +183,7 @@ void SctpAssociation::retransmitAsconf()
         it->second.numAuthChunksSent++;
     }
     sctpmsg->insertSctpChunks(sctpasconf);
+    sctpmsg->setChunkLength(B(sctpmsg->calculateChunkLength()));
     Packet *pkt = new Packet("ASCONF");
     sendToIP(pkt, sctpmsg);
 }
@@ -204,6 +206,7 @@ void SctpAssociation::sendAsconfAck(const uint32 serialNumber)
         it->second.numAuthChunksSent++;
     }
     sctpAsconfAck->insertSctpChunks(asconfAckChunk);
+    sctpAsconfAck->setChunkLength(B(sctpAsconfAck->calculateChunkLength()));
     Packet *pkt = new Packet("ASCONF");
     sendToIP(pkt, sctpAsconfAck, remoteAddr);
 }

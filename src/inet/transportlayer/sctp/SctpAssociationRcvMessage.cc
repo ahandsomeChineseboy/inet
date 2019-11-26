@@ -2729,6 +2729,7 @@ void SctpAssociation::processAddInAndOutResetRequestArrived(const SctpAddStreams
         delete state->resetChunk;
         state->resetChunk = nullptr;
     }
+    msg->setChunkLength(B(msg->calculateChunkLength()));
     state->resetChunk = check_and_cast<SctpStreamResetChunk *>(resetChunk->dup());
   //  state->resetChunk->setName("stateAddResetChunk");
     Packet *pkt = new Packet("RE_CONFIG");
@@ -3250,6 +3251,7 @@ SctpEventCode SctpAssociation::processAsconfArrived(SctpAsconfChunk *asconfChunk
             }
         }
         sctpAsconfAck->insertSctpChunks(asconfAckChunk);
+        sctpAsconfAck->setChunkLength(B(sctpAsconfAck->calculateChunkLength()));
         Packet *pkt = new Packet("ASCONF-ACK");
         sendToIP(pkt, sctpAsconfAck, remoteAddr);
         if (StartAddIP->isScheduled()) {

@@ -1307,6 +1307,7 @@ void SctpAssociation::sendOnPath(SctpPathVariables *pathId, bool firstPass)
 
                     dataChunkPtr = transformDataChunk(datVar);
                     sctpMsg->insertSctpChunks(dataChunkPtr);
+                    sctpMsg->setChunkLength(B(sctpMsg->calculateChunkLength()));
 
                     EV_DETAIL << assocId << ": DataChunk added -  TSN:" << dataChunkPtr->getTsn() << " - length:" << dataChunkPtr->getByteLength() << " - ssn:" << dataChunkPtr->getSsn() << "\n";
 
@@ -1459,6 +1460,7 @@ void SctpAssociation::sendOnPath(SctpPathVariables *pathId, bool firstPass)
                         << " bytes to send, headerCreated=" << headerCreated << endl;
             }    // if (bytesToSend > 0 || bytes.chunk || bytes.packet)
             else if (headerCreated && state->bundleReset) {
+                sctpMsg->setChunkLength(B(sctpMsg->calculateChunkLength()));
                 Packet *pkt = new Packet("DATA");
                 sendToIP(pkt, sctpMsg, path->remoteAddress);
                 sctpMsg = nullptr;

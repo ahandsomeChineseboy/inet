@@ -376,7 +376,7 @@ void Sctp::sendAbortFromMain(Ptr<SctpHeader>& sctpmsg, L3Address fromAddr, L3Add
 
     msg->setSrcPort(sctpmsg->getDestPort());
     msg->setDestPort(sctpmsg->getSrcPort());
-    msg->setChunkLength(B(SCTP_COMMON_HEADER));
+    //msg->setChunkLength(B(SCTP_COMMON_HEADER));
     msg->setCrc(0);
     msg->setCrcMode(crcMode);
     msg->setChecksumOk(true);
@@ -403,6 +403,8 @@ void Sctp::sendAbortFromMain(Ptr<SctpHeader>& sctpmsg, L3Address fromAddr, L3Add
     pkt->addTag<DispatchProtocolReq>()->setProtocol(addressType->getNetworkProtocol());
     insertTransportProtocolHeader(pkt, Protocol::sctp, msg);
     send_to_ip(pkt);
+
+    msg->setChunkLength(B(msg->calculateChunkLength()));
 }
 
 void Sctp::sendShutdownCompleteFromMain(Ptr<SctpHeader>& sctpmsg, L3Address fromAddr, L3Address toAddr)
@@ -434,6 +436,8 @@ void Sctp::sendShutdownCompleteFromMain(Ptr<SctpHeader>& sctpmsg, L3Address from
     pkt->addTag<DispatchProtocolReq>()->setProtocol(addressType->getNetworkProtocol());
     insertTransportProtocolHeader(pkt, Protocol::sctp, msg);
     send_to_ip(pkt);
+
+    msg->setChunkLength(B(msg->calculateChunkLength()));
 }
 
 void Sctp::send_to_ip(Packet *msg)
