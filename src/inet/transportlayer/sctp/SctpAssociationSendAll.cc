@@ -825,6 +825,7 @@ void SctpAssociation::sendOnPath(SctpPathVariables *pathId, bool firstPass)
 
             // ------ Add SACK chunk -------------------------------------------
             sctpMsg->insertSctpChunks(sackChunk);
+            sctpMsg->setChunkLength(B(sctpMsg->calculateChunkLength()));
             sackAdded = true;
             EV_DETAIL << assocId << ": SACK added, chunksAdded now " << chunksAdded << " sackOnly=" << sackOnly << " sackWithData=" << sackWithData << "\n";
             if (sackOnly && !(bytesToSend > 0 || bytes.chunk || bytes.packet)) {
