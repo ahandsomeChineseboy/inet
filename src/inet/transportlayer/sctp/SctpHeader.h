@@ -87,6 +87,8 @@ class INET_API SctpHeader : public SctpHeader_Base
     virtual void setSourcePort(unsigned int port) override { SctpHeader_Base::setSrcPort(port); }
     virtual unsigned int getDestinationPort() const override { return SctpHeader_Base::getDestPort(); }
     virtual void setDestinationPort(unsigned int port) override { SctpHeader_Base::setDestPort(port); }
+
+    uint64_t calculateChunkLength() const;
 };
 
 class INET_API SctpErrorChunk : public SctpErrorChunk_Base
