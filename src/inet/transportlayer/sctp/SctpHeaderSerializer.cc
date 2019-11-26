@@ -80,12 +80,13 @@ void deserializeDataChunk(MemoryInputStream& stream, SctpDataChunk* dataChunk) {
     dataChunk->setUBit(stream.readBit());
     dataChunk->setBBit(stream.readBit());
     dataChunk->setEBit(stream.readBit());
-    dataChunk->setByteLength(stream.readUint16Be());
+    uint16_t length = stream.readUint16Be();
+    dataChunk->setLength(length);
     dataChunk->setTsn(stream.readUint32Be());
     dataChunk->setSid(stream.readUint16Be());
     dataChunk->setSsn(stream.readUint16Be());
-    dataChunk->setPpid(stream.readUint64Be());
-    const uint32_t datalen = B(startPos - stream.getRemainingLength()).get();
+    dataChunk->setPpid(stream.readUint32Be());
+    const uint32_t datalen = length - (B(startPos - stream.getRemainingLength()).get() + 1);    // +1 because the type is read before the initialization of the startPos variable
     if (datalen > 0) {
         SctpSimpleMessage *smsg = new SctpSimpleMessage("data");
         smsg->setBitLength(datalen * 8);
@@ -96,6 +97,7 @@ void deserializeDataChunk(MemoryInputStream& stream, SctpDataChunk* dataChunk) {
         }
         dataChunk->encapsulate(smsg);
     }
+    dataChunk->setByteLength(length);
     // TODO: padding??
 }
 
@@ -220,8 +222,6 @@ void deserializeInitChunk(MemoryInputStream& stream, SctpInitChunk *initChunk) {
                 initChunk->setAddressesArraySize(initChunk->getAddressesArraySize() + 1);
                 Ipv4Address addr = stream.readIpv4Address();
                 // FIXME, TODO: don't know what happens here :( an ip address disappears
-                if (addr.isUnspecified())
-                    addr = Ipv4Address(10, 2, 1, 1);
                 std::cout << "reading: " << addr << endl;
                 initChunk->setAddresses(initChunk->getAddressesArraySize() - 1, addr);
                 break;
@@ -567,20 +567,19 @@ void serializeHeartbeatChunk(MemoryOutputStream& stream, const SctpHeartbeatChun
     //simtime_t time = heartbeatChunk->getTimeField();  ?? FIXME
     if (addr.getType() == L3Address::IPv4) {
         stream.writeUint16Be(1);
-        uint32_t infolen = sizeof(addr.toIpv4().getInt()) + sizeof(uint32_t);
-        stream.writeUint16Be(infolen + 4);
+        stream.writeUint16Be(12);
         stream.writeUint16Be(INIT_PARAM_IPV4);
         stream.writeUint16Be(8);
         stream.writeIpv4Address(addr.toIpv4());
     }
-    if (addr.getType() == L3Address::IPv6) {
+    else if (addr.getType() == L3Address::IPv6) {
         stream.writeUint16Be(1);
-        uint32_t infolen = 20 + sizeof(uint32_t);
-        stream.writeUint16Be(infolen + 4);
+        stream.writeUint16Be(24);
         stream.writeUint16Be(INIT_PARAM_IPV6);
         stream.writeUint16Be(20);
         stream.writeIpv6Address(addr.toIpv6());
     }
+    stream.writeSimTime(heartbeatChunk->getTimeField());    // FIXME: definitely not this way
 }
 
 void deserializeHeartbeatChunk(MemoryInputStream& stream, SctpHeartbeatChunk *heartbeatChunk) {
@@ -590,6 +589,7 @@ void deserializeHeartbeatChunk(MemoryInputStream& stream, SctpHeartbeatChunk *he
     stream.readUint16Be();
     uint16_t infolen = stream.readUint16Be();
     uint16_t paramType = stream.readUint16Be();
+    stream.readUint16Be();
     switch (paramType) {
         case INIT_PARAM_IPV4: {
             heartbeatChunk->setRemoteAddr(stream.readIpv4Address());
@@ -602,6 +602,7 @@ void deserializeHeartbeatChunk(MemoryInputStream& stream, SctpHeartbeatChunk *he
         default:
             stream.readByteRepeatedly(0, infolen - 4);
     }
+    heartbeatChunk->setTimeField(stream.readSimTime());
 }
 
 void serializeHeartbeatAckChunk(MemoryOutputStream& stream, const SctpHeartbeatAckChunk* heartbeatAckChunk) {
@@ -628,7 +629,7 @@ void serializeHeartbeatAckChunk(MemoryOutputStream& stream, const SctpHeartbeatA
             stream.writeUint16Be(8);
             stream.writeIpv4Address(addr.toIpv4());
         }
-        if (addr.getType() == L3Address::IPv6) {
+        else if (addr.getType() == L3Address::IPv6) {
             stream.writeUint16Be(1);
             uint32_t infolen = 20 + sizeof(uint32_t);
             stream.writeUint16Be(infolen + 4);
