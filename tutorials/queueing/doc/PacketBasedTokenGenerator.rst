@@ -1,5 +1,19 @@
-PacketBasedTokenGenerator
-=========================
+Generating Tokens after Received Packets
+========================================
 
 The :ned:`PacketBasedTokenGenerator` is a passive packet sink, and generates
 a configurable number of tokens when receiving a packet.
+
+.. figure:: media/PacketBasedTokenGenerator.png
+   :width: 100%
+   :align: center
+
+.. literalinclude:: ../QueueingTutorial.ned
+   :start-at: network PacketBasedTokenGenerator
+   :end-before: //----
+   :language: ned
+
+.. literalinclude:: ../omnetpp.ini
+   :start-at: Config PacketBasedTokenGenerator
+   :end-at: serverModule
+   :language: ini

@@ -1,4 +1,4 @@
-Ordinal-based Dropper
+Ordinal-Based Dropper
 =====================
 
 This step demonstrates the :ned:`OrdinalBasedDropper` module. The module drops packets based

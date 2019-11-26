@@ -933,19 +933,19 @@ network TokenBasedServerTutorialStep
 
 network TimeBasedTokenGeneratorTutorialStep
 {
-    @display("bgb=600,300");
+    @display("bgb=600,350");
     submodules:
         provider: PassivePacketSource {
-            @display("p=100,100");
+            @display("p=100,125");
         }
         server: TokenBasedServer {
-            @display("p=300,100");
+            @display("p=300,125");
         }
         consumer: PassivePacketSink {
-            @display("p=500,100");
+            @display("p=500,125");
         }
         tokenGenerator: TimeBasedTokenGenerator {
-            @display("p=100,200");
+            @display("p=100,250");
         }
     connections allowunconnected:
         provider.out --> server.in;
@@ -956,22 +956,22 @@ network TimeBasedTokenGeneratorTutorialStep
 
 network PacketBasedTokenGeneratorTutorialStep
 {
-    @display("bgb=1000,200");
+    @display("bgb=1000,250");
     submodules:
         producer: ActivePacketSource {
-           @display("p=100,100");
+           @display("p=100,125");
         }
         provider: PassivePacketSource {
-            @display("p=500,100");
+            @display("p=500,125");
         }
         server: TokenBasedServer {
-            @display("p=700,100");
+            @display("p=700,125");
         }
         consumer: PassivePacketSink {
-            @display("p=900,100");
+            @display("p=900,125");
         }
         tokenGenerator: PacketBasedTokenGenerator {
-            @display("p=300,100");
+            @display("p=300,125");
         }
     connections allowunconnected:
         producer.out --> tokenGenerator.in;
@@ -983,22 +983,22 @@ network PacketBasedTokenGeneratorTutorialStep
 
 network QueueBasedTokenGeneratorTutorialStep
 {
-    @display("bgb=600,200");
+    @display("bgb=800,350");
     submodules:
         provider: PassivePacketSource {
-            @display("p=100,100");
+            @display("p=100,125");
         }
         server: TokenBasedServer {
-            @display("p=150,150");
+            @display("p=300,125");
         }
         queue: PacketQueue {
-            @display("p=300,100");
+            @display("p=500,125");
         }
         collector: ActivePacketSink {
-            @display("p=500,100");
+            @display("p=700,125");
         }
         tokenGenerator: QueueBasedTokenGenerator {
-            @display("p=100,300");
+            @display("p=100,250");
         }
     connections allowunconnected:
         provider.out --> server.in;
@@ -1010,19 +1010,19 @@ network QueueBasedTokenGeneratorTutorialStep
 
 network SignalBasedTokenGeneratorTutorialStep
 {
-    @display("bgb=600,300");
+    @display("bgb=600,350");
     submodules:
         provider: PassivePacketSource {
-            @display("p=100,100");
+            @display("p=100,125");
         }
         server: TokenBasedServer {
-            @display("p=300,100");
+            @display("p=300,125");
         }
         consumer: PassivePacketSink {
-            @display("p=500,100");
+            @display("p=500,125");
         }
         tokenGenerator: SignalBasedTokenGenerator {
-            @display("p=100,200");
+            @display("p=100,250");
         }
     connections allowunconnected:
         provider.out --> server.in;

@@ -1,4 +1,4 @@
-Ordinal-based Duplicator
+Ordinal-Based Duplicator
 ========================
 
 This step demonstrates the :ned:`OrdinalBasedDuplicator` module. The module duplicates packets

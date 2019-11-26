@@ -1,4 +1,4 @@
-Markov Chain based Scheduler
+Markov Chain Based Scheduler
 ============================
 
 In this step, packets are periodically (randomly) produced by two active sources

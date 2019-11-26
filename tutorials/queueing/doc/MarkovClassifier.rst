@@ -1,4 +1,4 @@
-Markov Chain based Classifier
+Markov Chain Based Classifier
 =============================
 
 In this step, packets are periodically (randomly) collected by two active sinks
