@@ -460,6 +460,8 @@ void serializeSackChunk(MemoryOutputStream& stream, const SctpSackChunk* sackChu
     stream.writeByte(sackChunk->getSctpChunkType());
     stream.writeByte(0);
     stream.writeUint16Be(sackChunk->getByteLength());
+    stream.writeUint64Be(sackChunk->getSackSeqNum());   // FIXME: there is no sack seq num in rfc4960
+    stream.writeUint64Be(sackChunk->getDacPacketsRcvd());   // FIXME: there is no dac packets received in rfc4960
     uint32_t cumtsnack = sackChunk->getCumTsnAck();
     stream.writeUint32Be(cumtsnack);
     stream.writeUint32Be(sackChunk->getA_rwnd());
@@ -481,6 +483,8 @@ void deserializeSackChunk(MemoryInputStream& stream, SctpSackChunk *sackChunk) {
     sackChunk->setSctpChunkType(SACK);
     stream.readByte();
     sackChunk->setByteLength(stream.readUint16Be());
+    sackChunk->setSackSeqNum(stream.readUint64Be());   // FIXME: there is no sack seq num in rfc4960
+    sackChunk->setDacPacketsRcvd(stream.readUint64Be());   // FIXME: there is no dac packets received in rfc4960
     uint32_t cumtsnack = stream.readUint32Be();
     sackChunk->setCumTsnAck(cumtsnack);
     sackChunk->setA_rwnd(stream.readUint32Be());
@@ -602,7 +606,7 @@ void deserializeHeartbeatChunk(MemoryInputStream& stream, SctpHeartbeatChunk *he
         default:
             stream.readByteRepeatedly(0, infolen - 4);
     }
-    heartbeatChunk->setTimeField(stream.readSimTime());
+    heartbeatChunk->setTimeField(stream.readSimTime()); // FIXME: reading the simtime
 }
 
 void serializeHeartbeatAckChunk(MemoryOutputStream& stream, const SctpHeartbeatAckChunk* heartbeatAckChunk) {
@@ -638,6 +642,7 @@ void serializeHeartbeatAckChunk(MemoryOutputStream& stream, const SctpHeartbeatA
             stream.writeIpv6Address(addr.toIpv6());
         }
     }
+    stream.writeSimTime(heartbeatAckChunk->getTimeField());    // FIXME: definitely not this way
 }
 
 void deserializeHeartbeatAckChunk(MemoryInputStream& stream, SctpHeartbeatAckChunk *heartbeatAckChunk) {
@@ -646,26 +651,32 @@ void deserializeHeartbeatAckChunk(MemoryInputStream& stream, SctpHeartbeatAckChu
     heartbeatAckChunk->setByteLength(stream.readUint16Be());
     stream.readUint16Be();
     uint16_t infolen = stream.readUint16Be();
-    uint16_t paramType = stream.readUint16Be();
-    switch (paramType) {
-        case 1: {
-            heartbeatAckChunk->setInfoArraySize(infolen - 4);
-            for (uint16_t i = 0; i < infolen - 4; ++i) {
-                heartbeatAckChunk->setInfo(i, stream.readByte());
+    if (infolen == 0) {
+        stream.readUint16Be();
+        infolen = stream.readUint16Be();
+        switch (stream.readUint16Be()) {
+            case INIT_PARAM_IPV4: {
+                stream.readUint16Be();
+                heartbeatAckChunk->setRemoteAddr(stream.readIpv4Address());
+                break;
             }
-            break;
+            case INIT_PARAM_IPV6: {
+                stream.readUint16Be();
+                heartbeatAckChunk->setRemoteAddr(stream.readIpv6Address());
+                break;
+            }
+            default:
+                stream.readByteRepeatedly(0, infolen - 4);
         }
-        case INIT_PARAM_IPV4: {
-            heartbeatAckChunk->setRemoteAddr(stream.readIpv4Address());
-            break;
-        }
-        case INIT_PARAM_IPV6: {
-            heartbeatAckChunk->setRemoteAddr(stream.readIpv6Address());
-            break;
-        }
-        default:
-            stream.readByteRepeatedly(0, infolen - 4);
     }
+    else {
+        ASSERT(infolen - 4 >= 0);
+        heartbeatAckChunk->setInfoArraySize(infolen - 4);
+        for (uint16_t i = 0; i < infolen - 4; ++i) {
+            heartbeatAckChunk->setInfo(i, stream.readByte());
+        }
+    }
+    heartbeatAckChunk->setTimeField(stream.readSimTime()); // FIXME: reading the simtime
 }
 
 void serializeAbortChunk(MemoryOutputStream& stream, const SctpAbortChunk* abortChunk) {
@@ -1265,9 +1276,15 @@ void SctpHeaderSerializer::serialize(MemoryOutputStream& stream, const Ptr<const
                 serializeInitAckChunk(stream, initAckChunk);
                 break;
             }
-            case NR_SACK: {
+            case SACK: {
                 SctpSackChunk *sackChunk = check_and_cast<SctpSackChunk *>(chunk);
                 std::cout << "serialize sack chunk" << endl;
+                serializeSackChunk(stream, sackChunk);
+                break;
+            }
+            case NR_SACK: {
+                SctpSackChunk *sackChunk = check_and_cast<SctpSackChunk *>(chunk);
+                std::cout << "serialize nrsack chunk" << endl;
                 serializeNrSackChunk(stream, sackChunk);
                 break;
             }
@@ -1362,7 +1379,7 @@ void SctpHeaderSerializer::serialize(MemoryOutputStream& stream, const Ptr<const
                 break;
             }
             default:
-                throw new cRuntimeError("TODO: unknown chunktype in outgoing packet on external interface! Implement it!");
+                throw new cRuntimeError("Unknown chunk type %d in outgoing packet on external interface!", chunkType);
         }
     }
     int remaining = b(sctpHeader->getChunkLength() - (stream.getLength() - startPos)).get();
