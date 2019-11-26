@@ -25,22 +25,20 @@ Register_Serializer(LMacDataFrameHeader, LMacHeaderSerializer);
 
 void LMacHeaderSerializer::serialize(MemoryOutputStream& stream, const Ptr<const Chunk>& chunk) const
 {
-    B startPos = B(stream.getLength());
+    b startPos = stream.getLength();
     const auto& header = staticPtrCast<const LMacHeaderBase>(chunk);
     stream.writeByte(header->getType());
-    stream.writeByte(B(header->getChunkLength()).get());
+    stream.writeUint16Be(b(header->getChunkLength()).get());
     stream.writeMacAddress(header->getSrcAddr());
     stream.writeMacAddress(header->getDestAddr());
     stream.writeUint64Be(header->getMySlot());
     uint8_t numSlots = header->getOccupiedSlotsArraySize();
     stream.writeByte(numSlots);
-    uint8_t minHeaderLengthWithZeroSlots = header->getType() == LMAC_DATA ? B(stream.getLength() - startPos).get() + 2 : B(stream.getLength() - startPos).get();
-    uint8_t headerLengthWithoutSlots = B(header->getChunkLength()).get() - numSlots * 6;
-    int remaining = headerLengthWithoutSlots - minHeaderLengthWithZeroSlots;
-    if (remaining < 0)
-        throw cRuntimeError("LMacHeader length = %d smaller than required %d bytes, try to increase the 'headerLength' parameter", headerLengthWithoutSlots, minHeaderLengthWithZeroSlots);
-    for (size_t i = 0; i < numSlots; ++i)
-        stream.writeMacAddress(header->getOccupiedSlots(i));
+    b minHeaderLengthWithZeroSlots = header->getType() == LMAC_DATA ? stream.getLength() - startPos + b(16) : stream.getLength() - startPos;
+    b headerLengthWithoutSlots = header->getChunkLength() - b(numSlots * 6 * 8);
+    auto remainderBits = b(headerLengthWithoutSlots - minHeaderLengthWithZeroSlots).get();
+    if (remainderBits < 0)
+        throw cRuntimeError("LMacHeader length = %s smaller than required %s, try to increase the 'headerLength' parameter", headerLengthWithoutSlots.str().c_str(), minHeaderLengthWithZeroSlots.str().c_str());
     switch (header->getType()) {
         case LMAC_CONTROL: {
             break;
@@ -53,53 +51,68 @@ void LMacHeaderSerializer::serialize(MemoryOutputStream& stream, const Ptr<const
         default:
             throw cRuntimeError("Unknown header type: %d", header->getType());
     }
-    while ((B(stream.getLength()) - startPos) < B(header->getChunkLength()))
-            stream.writeByte('?');
+    if (remainderBits >= 8)
+        stream.writeByteRepeatedly('?', remainderBits >> 3);
+    if (remainderBits & 7)
+        stream.writeBitRepeatedly(0, remainderBits & 7);
+    for (size_t i = 0; i < numSlots; ++i)
+        stream.writeMacAddress(header->getOccupiedSlots(i));
 }
 
 const Ptr<Chunk> LMacHeaderSerializer::deserialize(MemoryInputStream& stream) const
 {
-    B startPos = stream.getPosition();
-    auto header = makeShared<LMacHeaderBase>();
+    b startPos = stream.getPosition();
     LMacType type = static_cast<LMacType>(stream.readByte());
-    uint8_t length = stream.readByte();
+    b length = b(stream.readUint16Be());
     switch (type) {
         case LMAC_CONTROL: {
             auto ctrlFrame = makeShared<LMacControlFrame>();
             ctrlFrame->setType(type);
-            ctrlFrame->setChunkLength(B(length));
+            ctrlFrame->setChunkLength(length);
             ctrlFrame->setSrcAddr(stream.readMacAddress());
             ctrlFrame->setDestAddr(stream.readMacAddress());
             ctrlFrame->setMySlot(stream.readUint64Be());
             uint8_t numSlots = stream.readByte();
             ctrlFrame->setOccupiedSlotsArraySize(numSlots);
+            auto remainderBits = b(length - (stream.getPosition() - startPos)).get() - numSlots * 6 * 8;
+            if (remainderBits >= 8)
+                stream.readByteRepeatedly('?', remainderBits >> 3);
+            if (remainderBits & 7)
+                stream.readBitRepeatedly(0, remainderBits & 7);
             for (size_t i = 0; i < numSlots; ++i)
                 ctrlFrame->setOccupiedSlots(i, stream.readMacAddress());
-            while (B(length) - (stream.getPosition() - startPos) > B(0))
-                stream.readByte();
             return ctrlFrame;
         }
         case LMAC_DATA: {
             auto dataFrame = makeShared<LMacDataFrameHeader>();
             dataFrame->setType(type);
-            dataFrame->setChunkLength(B(length));
+            dataFrame->setChunkLength(length);
             dataFrame->setSrcAddr(stream.readMacAddress());
             dataFrame->setDestAddr(stream.readMacAddress());
             dataFrame->setMySlot(stream.readUint64Be());
             uint8_t numSlots = stream.readByte();
             dataFrame->setOccupiedSlotsArraySize(numSlots);
+            dataFrame->setNetworkProtocol(stream.readUint16Be());
+            auto remainderBits = b(length - (stream.getPosition() - startPos)).get() - numSlots * 6 * 8;
+            if (remainderBits >= 8)
+                stream.readByteRepeatedly('?', remainderBits >> 3);
+            if (remainderBits & 7)
+                stream.readBitRepeatedly(0, remainderBits & 7);
             for (size_t i = 0; i < numSlots; ++i)
                 dataFrame->setOccupiedSlots(i, stream.readMacAddress());
-            dataFrame->setNetworkProtocol(stream.readUint16Be());
-            while (B(length) - (stream.getPosition() - startPos) > B(0))
-                stream.readByte();
             return dataFrame;
         }
         default: {
-            while (B(length) - (stream.getPosition() - startPos) > B(0))
-                stream.readByte();
-            header->markIncorrect();
-            return header;
+            auto unknownFrame = makeShared<LMacHeaderBase>();
+            unknownFrame->setType(type);
+            unknownFrame->setChunkLength(length);
+            auto remainderBits = b(length - (stream.getPosition() - startPos)).get();
+            if (remainderBits >= 8)
+                stream.readByteRepeatedly('?', remainderBits >> 3);
+            if (remainderBits & 7)
+                stream.readBitRepeatedly(0, remainderBits & 7);
+            unknownFrame->markIncorrect();
+            return unknownFrame;
         }
     }
 }
