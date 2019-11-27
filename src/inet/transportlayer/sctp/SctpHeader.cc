@@ -174,7 +174,7 @@ uint64_t SctpHeader::calculateChunkLength() const {
 
      // SCTP chunks:
      int32_t numChunks = this->getSctpChunksArraySize();
-     chunkLength += 4;
+     //chunkLength += 4;
      for (int32_t cc = 0; cc < numChunks; cc++) {
          SctpChunk *chunk = const_cast<SctpChunk *>(check_and_cast<const SctpChunk *>((this)->getSctpChunks(cc)));
          unsigned char chunkType = chunk->getSctpChunkType();
@@ -190,7 +190,7 @@ uint64_t SctpHeader::calculateChunkLength() const {
                  SctpInitChunk *initChunk = check_and_cast<SctpInitChunk *>(chunk);
                  chunkLength += 20;
                  if (initChunk->getIpv4Supported() || initChunk->getIpv6Supported())
-                     chunkLength += 8;
+                     chunkLength += initChunk->getIpv4Supported() && initChunk->getIpv6Supported() ? 8 : 6;
                  if (initChunk->getForwardTsn() == true)
                      chunkLength += 4;
                  for (size_t i = 0; i < initChunk->getAddressesArraySize(); ++i) {
@@ -217,7 +217,7 @@ uint64_t SctpHeader::calculateChunkLength() const {
                  SctpInitAckChunk *initAckChunk = check_and_cast<SctpInitAckChunk *>(chunk);
                  chunkLength += 20;
                  if (initAckChunk->getIpv4Supported() || initAckChunk->getIpv6Supported())
-                     chunkLength += 8;
+                     chunkLength += initAckChunk->getIpv4Supported() && initAckChunk->getIpv6Supported() ? 8 : 6;
                  if (initAckChunk->getForwardTsn() == true)
                      chunkLength += 4;
                  for (size_t i = 0; i < initAckChunk->getAddressesArraySize(); ++i) {
@@ -248,8 +248,8 @@ uint64_t SctpHeader::calculateChunkLength() const {
              case SACK: {
                  SctpSackChunk *sackChunk = check_and_cast<SctpSackChunk *>(chunk);
                  chunkLength += 16;
-                 chunkLength += 8;   // FIXME: there is no sack seq num in rfc4960
-                 chunkLength += 8;  // FIXME: there is no dac packets received in rfc4960
+                 //chunkLength += 8;   // FIXME: there is no sack seq num in rfc4960
+                 //chunkLength += 8;  // FIXME: there is no dac packets received in rfc4960
                  uint16_t numgaps = sackChunk->getNumGaps();
                  chunkLength += numgaps * 4;
                  uint16_t numdups = sackChunk->getNumDupTsns();
@@ -332,7 +332,7 @@ uint64_t SctpHeader::calculateChunkLength() const {
              }
              case ASCONF: {
                  SctpAsconfChunk *asconfChunk = check_and_cast<SctpAsconfChunk *>(chunk);
-                 chunkLength += 16 + asconfChunk->getAsconfParamsArraySize() * 12;
+                 chunkLength += 16 + asconfChunk->getAsconfParamsArraySize() * 14;
                  break;
              }
              case ASCONF_ACK: {
