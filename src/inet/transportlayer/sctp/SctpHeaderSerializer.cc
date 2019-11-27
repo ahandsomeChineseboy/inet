@@ -50,6 +50,21 @@ namespace {
 // TODO: chunks must be padded to 4 bytes boundary, padding should not be included in the length field
 
 void serializeDataChunk(MemoryOutputStream& stream, const SctpDataChunk* dataChunk) {
+    // RFC 4960, 3.3.1., RFC 7053, 3.
+    /**
+     * Type: 8 bits
+     * Reserved: 4 bits
+     * I bit: 1 bit
+     * U bit: 1 bit
+     * B bit: 1 bit
+     * E bit: 1 bit
+     * Length: 16 bits (length of data chunk in bytes without padding)
+     * TSN: 32 bits
+     * Stream Identifier (S): 16 bits
+     * Stream Sequence Number (n): 16 bits
+     * Payload Protocol Identifier: 32 bits
+     * User Data: variable length
+     */
     stream.writeByte(dataChunk->getSctpChunkType());
     stream.writeNBitsOfUint64Be(0, 4);
     stream.writeBit(dataChunk->getIBit());
@@ -70,6 +85,7 @@ void serializeDataChunk(MemoryOutputStream& stream, const SctpDataChunk* dataChu
         }
     }
     // TODO: padding to 4 bytes boundary
+    //stream.writeByteRepeatedly(0, PAD_LEN(16 + datalen));
 }
 
 void deserializeDataChunk(MemoryInputStream& stream, SctpDataChunk* dataChunk) {
@@ -102,6 +118,18 @@ void deserializeDataChunk(MemoryInputStream& stream, SctpDataChunk* dataChunk) {
 }
 
 void serializeInitChunk(MemoryOutputStream& stream, const SctpInitChunk* initChunk) {
+    // RFC 4960, 3.3.2.
+    /**
+     * Type: 8 bits
+     * Chunk Flags: 8 bits
+     * Length: 16 bits (length of data chunk in bytes without padding)
+     * Initiate Tag: 32 bits
+     * a_rwnd: 32 bits
+     * Number of Outbound Streams: 16 bits
+     * Number of Inbound Streams: 16 bits
+     * Initial TSN: 32 bits
+     * Optional/Variable-Length Parameters: variable length
+     */
     stream.writeByte(initChunk->getSctpChunkType());
     stream.writeByte(0);
     stream.writeUint16Be(initChunk->getByteLength());
@@ -110,34 +138,30 @@ void serializeInitChunk(MemoryOutputStream& stream, const SctpInitChunk* initChu
     stream.writeUint16Be(initChunk->getNoOutStreams());
     stream.writeUint16Be(initChunk->getNoInStreams());
     stream.writeUint32Be(initChunk->getInitTsn());
-    // Supported Address Types Parameter
+    // Supported Address Types Parameter (RFC 4960, 3.3.2.1.)
     if (initChunk->getIpv4Supported() || initChunk->getIpv6Supported()) {
         stream.writeUint16Be(INIT_SUPPORTED_ADDRESS);
-        stream.writeUint16Be(8);    // FIXME should be 6 according to wireshark
+        stream.writeUint16Be(initChunk->getIpv4Supported() && initChunk->getIpv6Supported() ? 8 : 6);
         if (initChunk->getIpv4Supported() && initChunk->getIpv6Supported()) {
             stream.writeUint16Be(INIT_PARAM_IPV4);
             stream.writeUint16Be(INIT_PARAM_IPV6);
         }
-        else if (initChunk->getIpv4Supported()) {
+        else if (initChunk->getIpv4Supported())
             stream.writeUint16Be(INIT_PARAM_IPV4);
-            stream.writeUint16Be(0);
-        }
-        else {
+        else
             stream.writeUint16Be(INIT_PARAM_IPV6);
-            stream.writeUint16Be(0);
-        }
+        // TODO: padding to 4 bytes
     }
-    // Forward-TSN-Supported Parameter
+    // Forward-TSN-Supported Parameter (RFC 3758, 3.1.)
     if (initChunk->getForwardTsn() == true) {
         stream.writeUint16Be(FORWARD_TSN_SUPPORTED_PARAMETER);
         stream.writeUint16Be(4);
     }
-    // IPv4 Address Parameter & IPv6 Address Parameter
+    // IPv4 Address Parameter & IPv6 Address Parameter (RFC 4960, 3.3.2.1.)
     for (size_t i = 0; i < initChunk->getAddressesArraySize(); ++i) {
         if (initChunk->getAddresses(i).getType() == L3Address::IPv4) {
             stream.writeUint16Be(INIT_PARAM_IPV4);
             stream.writeUint16Be(8);
-            std::cout << "writing: " << initChunk->getAddresses(i).toIpv4() << endl;
             stream.writeIpv4Address(initChunk->getAddresses(i).toIpv4());
         }
         else if (initChunk->getAddresses(i).getType() == L3Address::IPv6) {
@@ -146,7 +170,7 @@ void serializeInitChunk(MemoryOutputStream& stream, const SctpInitChunk* initChu
             stream.writeIpv6Address(initChunk->getAddresses(i).toIpv6());
         }
     }
-    // Supported Extensions Parameter
+    // Supported Extensions Parameter (RFC 5061, 4.2.7.)
     uint64_t chunkCount = initChunk->getSepChunksArraySize();
     if (chunkCount > 0) {
         stream.writeUint16Be(SUPPORTED_EXTENSIONS);
@@ -154,8 +178,9 @@ void serializeInitChunk(MemoryOutputStream& stream, const SctpInitChunk* initChu
         for (uint64_t i = 0; i < chunkCount; ++i) {
             stream.writeByte(initChunk->getSepChunks(i));
         }
+        // TODO: padding to 4 bytes
     }
-    // Random Parameter
+    // Random Parameter (RFC 4895, 3.1.)
     uint64_t randomCount = initChunk->getRandomArraySize();
     if (randomCount > 0) {
         stream.writeUint16Be(RANDOM);
@@ -163,8 +188,9 @@ void serializeInitChunk(MemoryOutputStream& stream, const SctpInitChunk* initChu
         for (uint64_t i = 0; i < randomCount; ++i) {
             stream.writeByte(initChunk->getRandom(i));
         }
+        // TODO: padding to 4 bytes
     }
-    // Chunk List Parameter
+    // Chunk List Parameter (RFC 4895, 3.2.)
     uint64_t chunkTypeCount = initChunk->getSctpChunkTypesArraySize();
     if (chunkTypeCount > 0) {
         stream.writeUint16Be(CHUNKS);
@@ -172,8 +198,9 @@ void serializeInitChunk(MemoryOutputStream& stream, const SctpInitChunk* initChu
         for (uint64_t i = 0; i < chunkTypeCount; ++i) {
             stream.writeByte(initChunk->getSctpChunkTypes(i));
         }
+        // TODO: padding to 4 bytes
     }
-    // Requested HMAC Algorithm Parameter
+    // Requested HMAC Algorithm Parameter (RFC 4895, 3.3.)
     uint64_t hmacCount = initChunk->getHmacTypesArraySize();
     if (hmacCount > 0) {
         stream.writeUint16Be(HMAC_ALGO);
@@ -181,6 +208,7 @@ void serializeInitChunk(MemoryOutputStream& stream, const SctpInitChunk* initChu
         for (uint64_t i = 0; i < hmacCount; ++i) {
             stream.writeUint16Be(initChunk->getHmacTypes(i));
         }
+        // TODO: padding to 4 bytes
     }
 }
 
@@ -198,17 +226,17 @@ void deserializeInitChunk(MemoryInputStream& stream, SctpInitChunk *initChunk) {
         uint16_t chunkType = stream.readUint16Be();
         uint16_t length = stream.readUint16Be();
         readBytes += length;
-        std::cout << "readBytes: " << readBytes << endl;
+        //std::cout << "readBytes: " << readBytes << endl;
         switch (chunkType) {
             case INIT_SUPPORTED_ADDRESS: {
-                uint16_t firstEntry = stream.readUint16Be();
-                uint16_t secondEntry = stream.readUint16Be();
-                if (firstEntry == INIT_PARAM_IPV4) {
-                    initChunk->setIpv4Supported(true);
+                for (uint8_t i = 0; i < length - 4; i += 2) {
+                    uint16_t tmp = stream.readUint16Be();
+                    if (tmp == INIT_PARAM_IPV4)
+                        initChunk->setIpv4Supported(true);
+                    else if (tmp == INIT_PARAM_IPV6)
+                        initChunk->setIpv6Supported(true);
                 }
-                if (firstEntry == INIT_PARAM_IPV6 || secondEntry == INIT_PARAM_IPV6) {
-                    initChunk->setIpv6Supported(true);
-                }
+                // TODO: handle padding to 4 bytes
                 break;
             }
             case FORWARD_TSN_SUPPORTED_PARAMETER: {
@@ -216,13 +244,12 @@ void deserializeInitChunk(MemoryInputStream& stream, SctpInitChunk *initChunk) {
                 for (uint64_t i = 0; i < uint64_t(length - 4); ++i) {
                     initChunk->setSepChunks(i, stream.readByte());
                 }
+                // TODO: handle padding to 4 bytes
                 break;
             }
             case INIT_PARAM_IPV4: {
                 initChunk->setAddressesArraySize(initChunk->getAddressesArraySize() + 1);
                 Ipv4Address addr = stream.readIpv4Address();
-                // FIXME, TODO: don't know what happens here :( an ip address disappears
-                std::cout << "reading: " << addr << endl;
                 initChunk->setAddresses(initChunk->getAddressesArraySize() - 1, addr);
                 break;
             }
@@ -236,6 +263,7 @@ void deserializeInitChunk(MemoryInputStream& stream, SctpInitChunk *initChunk) {
                 for (uint16_t i = 0; i < uint16_t(length - 4); ++i) {
                     initChunk->setSepChunks(i, stream.readByte());
                 }
+                // TODO: handle padding to 4 bytes
                 break;
             }
             case RANDOM: {
@@ -243,6 +271,7 @@ void deserializeInitChunk(MemoryInputStream& stream, SctpInitChunk *initChunk) {
                 for (uint16_t i = 0; i < uint16_t(length - 4); ++i) {
                     initChunk->setRandom(i, stream.readByte());
                 }
+                // TODO: handle padding to 4 bytes
                 break;
             }
             case CHUNKS: {
@@ -250,6 +279,7 @@ void deserializeInitChunk(MemoryInputStream& stream, SctpInitChunk *initChunk) {
                 for (uint16_t i = 0; i < uint16_t(length - 4); ++i) {
                     initChunk->setSctpChunkTypes(i, stream.readByte());
                 }
+                // TODO: handle padding to 4 bytes
                 break;
             }
             case HMAC_ALGO: {
@@ -257,6 +287,7 @@ void deserializeInitChunk(MemoryInputStream& stream, SctpInitChunk *initChunk) {
                 for (uint16_t i = 0; i < uint16_t((length - 4) / 2); ++i) {
                     initChunk->setHmacTypes(i, stream.readUint16Be());
                 }
+                // TODO: handle padding to 4 bytes
                 break;
             }
             default: {
@@ -278,19 +309,16 @@ void serializeInitAckChunk(MemoryOutputStream& stream, const SctpInitAckChunk* i
     // Supported Address Types Parameter
     if (initAckChunk->getIpv4Supported() || initAckChunk->getIpv6Supported()) {
         stream.writeUint16Be(INIT_SUPPORTED_ADDRESS);
-        stream.writeUint16Be(8);
+        stream.writeUint16Be(initAckChunk->getIpv4Supported() && initAckChunk->getIpv6Supported() ? 8 : 6);
         if (initAckChunk->getIpv4Supported() && initAckChunk->getIpv6Supported()) {
             stream.writeUint16Be(INIT_PARAM_IPV4);
             stream.writeUint16Be(INIT_PARAM_IPV6);
         }
-        else if (initAckChunk->getIpv4Supported()) {
+        else if (initAckChunk->getIpv4Supported())
             stream.writeUint16Be(INIT_PARAM_IPV4);
-            stream.writeUint16Be(0);
-        }
-        else {
+        else
             stream.writeUint16Be(INIT_PARAM_IPV6);
-            stream.writeUint16Be(0);
-        }
+        // TODO: padding to 4 bytes
     }
     // Forward-TSN-Supported Parameter
     if (initAckChunk->getForwardTsn() == true) {
@@ -380,14 +408,14 @@ void deserializeInitAckChunk(MemoryInputStream& stream, SctpInitAckChunk *initAc
         readBytes += length;
         switch (chunkType) {
             case INIT_SUPPORTED_ADDRESS: {
-                uint16_t firstEntry = stream.readUint16Be();
-                uint16_t secondEntry = stream.readUint16Be();
-                if (firstEntry == INIT_PARAM_IPV4) {
-                    initAckChunk->setIpv4Supported(true);
+                for (uint8_t i = 0; i < length - 4; i += 2) {
+                    uint16_t tmp = stream.readUint16Be();
+                    if (tmp == INIT_PARAM_IPV4)
+                        initAckChunk->setIpv4Supported(true);
+                    else if (tmp == INIT_PARAM_IPV6)
+                        initAckChunk->setIpv6Supported(true);
                 }
-                if (firstEntry == INIT_PARAM_IPV6 || secondEntry == INIT_PARAM_IPV6) {
-                    initAckChunk->setIpv6Supported(true);
-                }
+                // TODO: handle padding to 4 bytes
                 break;
             }
             case FORWARD_TSN_SUPPORTED_PARAMETER: {
@@ -460,8 +488,8 @@ void serializeSackChunk(MemoryOutputStream& stream, const SctpSackChunk* sackChu
     stream.writeByte(sackChunk->getSctpChunkType());
     stream.writeByte(0);
     stream.writeUint16Be(sackChunk->getByteLength());
-    stream.writeUint64Be(sackChunk->getSackSeqNum());   // FIXME: there is no sack seq num in rfc4960
-    stream.writeUint64Be(sackChunk->getDacPacketsRcvd());   // FIXME: there is no dac packets received in rfc4960
+    //stream.writeUint64Be(sackChunk->getSackSeqNum());   // FIXME: there is no sack seq num in rfc4960
+    //stream.writeUint64Be(sackChunk->getDacPacketsRcvd());   // FIXME: there is no dac packets received in rfc4960
     uint32_t cumtsnack = sackChunk->getCumTsnAck();
     stream.writeUint32Be(cumtsnack);
     stream.writeUint32Be(sackChunk->getA_rwnd());
@@ -483,8 +511,8 @@ void deserializeSackChunk(MemoryInputStream& stream, SctpSackChunk *sackChunk) {
     sackChunk->setSctpChunkType(SACK);
     stream.readByte();
     sackChunk->setByteLength(stream.readUint16Be());
-    sackChunk->setSackSeqNum(stream.readUint64Be());   // FIXME: there is no sack seq num in rfc4960
-    sackChunk->setDacPacketsRcvd(stream.readUint64Be());   // FIXME: there is no dac packets received in rfc4960
+    //sackChunk->setSackSeqNum(stream.readUint64Be());   // FIXME: there is no sack seq num in rfc4960
+    //sackChunk->setDacPacketsRcvd(stream.readUint64Be());   // FIXME: there is no dac packets received in rfc4960
     uint32_t cumtsnack = stream.readUint32Be();
     sackChunk->setCumTsnAck(cumtsnack);
     sackChunk->setA_rwnd(stream.readUint32Be());
@@ -570,17 +598,17 @@ void serializeHeartbeatChunk(MemoryOutputStream& stream, const SctpHeartbeatChun
     L3Address addr = heartbeatChunk->getRemoteAddr();
     //simtime_t time = heartbeatChunk->getTimeField();  ?? FIXME
     if (addr.getType() == L3Address::IPv4) {
-        stream.writeUint16Be(1);
-        stream.writeUint16Be(12);
+        stream.writeUint16Be(1);    // Heartbeat Info Type=1
+        stream.writeUint16Be(12 + 9);   // HB Info Length --- FIXME + 9 because of simtime
         stream.writeUint16Be(INIT_PARAM_IPV4);
         stream.writeUint16Be(8);
         stream.writeIpv4Address(addr.toIpv4());
     }
     else if (addr.getType() == L3Address::IPv6) {
-        stream.writeUint16Be(1);
-        stream.writeUint16Be(24);
+        stream.writeUint16Be(1);    // Heartbeat Info Type=1
+        stream.writeUint16Be(24 + 9);   // HB Info Length --- FIXME + 9 because of simtime
         stream.writeUint16Be(INIT_PARAM_IPV6);
-        stream.writeUint16Be(20);
+        stream.writeUint16Be(20 + 9);
         stream.writeIpv6Address(addr.toIpv6());
     }
     stream.writeSimTime(heartbeatChunk->getTimeField());    // FIXME: definitely not this way
@@ -624,7 +652,6 @@ void serializeHeartbeatAckChunk(MemoryOutputStream& stream, const SctpHeartbeatA
     else {
         stream.writeUint16Be(0);  // FIXME: writing 0 as length to mandatory field above
         L3Address addr = heartbeatAckChunk->getRemoteAddr();
-        //simtime_t time = heartbeatAckChunk->getTimeField();   // FIXME: ??
         if (addr.getType() == L3Address::IPv4) {
             stream.writeUint16Be(1);
             uint32_t infolen = sizeof(addr.toIpv4().getInt()) + sizeof(uint32_t);
@@ -684,6 +711,7 @@ void serializeAbortChunk(MemoryOutputStream& stream, const SctpAbortChunk* abort
     stream.writeNBitsOfUint64Be(0, 7);
     stream.writeBit(abortChunk->getT_Bit());
     stream.writeUint16Be(abortChunk->getByteLength());
+    // TODO: zero or more Error Causes?
 }
 
 void deserializeAbortChunk(MemoryInputStream& stream, SctpAbortChunk *abortChunk) {
@@ -876,8 +904,8 @@ void serializeAsconfChangeChunk(MemoryOutputStream& stream, const SctpAsconfChun
         switch (parameter->getParameterType()) {
             case ADD_IP_ADDRESS: {
                 SctpAddIPParameter *addip = check_and_cast<SctpAddIPParameter *>(parameter);
-                stream.writeByte(ADD_IP_ADDRESS);
-                stream.writeByte(addip->getByteLength());
+                stream.writeUint16Be(ADD_IP_ADDRESS);
+                stream.writeUint16Be(addip->getByteLength());
                 stream.writeUint32Be(addip->getRequestCorrelationId());
                 stream.writeByte(INIT_PARAM_IPV4);
                 stream.writeByte(8);
@@ -886,8 +914,8 @@ void serializeAsconfChangeChunk(MemoryOutputStream& stream, const SctpAsconfChun
             }
             case DELETE_IP_ADDRESS: {
                 SctpDeleteIPParameter *deleteip = check_and_cast<SctpDeleteIPParameter *>(parameter);
-                stream.writeByte(DELETE_IP_ADDRESS);
-                stream.writeByte(deleteip->getByteLength());
+                stream.writeUint16Be(DELETE_IP_ADDRESS);
+                stream.writeUint16Be(deleteip->getByteLength());
                 stream.writeUint32Be(deleteip->getRequestCorrelationId());
                 stream.writeByte(INIT_PARAM_IPV4);
                 stream.writeByte(8);
@@ -896,8 +924,8 @@ void serializeAsconfChangeChunk(MemoryOutputStream& stream, const SctpAsconfChun
             }
             case SET_PRIMARY_ADDRESS: {
                 SctpSetPrimaryIPParameter *setip = check_and_cast<SctpSetPrimaryIPParameter *>(parameter);
-                stream.writeByte(SET_PRIMARY_ADDRESS);
-                stream.writeByte(setip->getByteLength());
+                stream.writeUint16Be(SET_PRIMARY_ADDRESS);
+                stream.writeUint16Be(setip->getByteLength());
                 stream.writeUint32Be(setip->getRequestCorrelationId());
                 stream.writeByte(INIT_PARAM_IPV4);
                 stream.writeByte(8);
@@ -924,12 +952,11 @@ void deserializeAsconfChangeChunk(MemoryInputStream& stream, SctpAsconfChunk *as
     uint8_t arrsize = (asconfChunk->getByteLength() - 16) / 12;
     asconfChunk->setAsconfParamsArraySize(arrsize);
     for (uint32_t i = 0; i < arrsize; ++i) {
-        uint8_t type = stream.readByte();
+        uint16_t type = stream.readUint16Be();
         switch (type) {
             case ADD_IP_ADDRESS: {
                 SctpAddIPParameter *addip = new SctpAddIPParameter();
-                stream.readByte();
-                stream.readByte();
+                stream.readUint16Be();
                 addip->setRequestCorrelationId(stream.readUint32Be());
                 stream.readByte();
                 stream.readByte();
@@ -939,8 +966,7 @@ void deserializeAsconfChangeChunk(MemoryInputStream& stream, SctpAsconfChunk *as
             }
             case DELETE_IP_ADDRESS: {
                 SctpDeleteIPParameter *deleteip = new SctpDeleteIPParameter();
-                stream.readByte();
-                stream.readByte();
+                stream.readUint16Be();
                 deleteip->setRequestCorrelationId(stream.readUint32Be());
                 stream.readByte();
                 stream.readByte();
@@ -950,8 +976,7 @@ void deserializeAsconfChangeChunk(MemoryInputStream& stream, SctpAsconfChunk *as
             }
             case SET_PRIMARY_ADDRESS: {
                 SctpSetPrimaryIPParameter *setip = new SctpSetPrimaryIPParameter();
-                stream.readByte();
-                stream.readByte();
+                stream.readUint16Be();
                 setip->setRequestCorrelationId(stream.readUint32Be());
                 stream.readByte();
                 stream.readByte();
@@ -1243,7 +1268,7 @@ void serializeReConfigurationChunk(MemoryOutputStream& stream, const SctpStreamR
 void SctpHeaderSerializer::serialize(MemoryOutputStream& stream, const Ptr<const Chunk>& chunk) const
 {
     b startPos = stream.getLength();
-    std::cout << "initial length of stream (serialize): " << stream.getLength().get() << endl;
+    //std::cout << "initial length of stream (serialize): " << stream.getLength().get() << endl;
     const auto& sctpHeader = staticPtrCast<const SctpHeader>(chunk);
 
     stream.writeUint16Be(sctpHeader->getSourcePort());
@@ -1253,144 +1278,147 @@ void SctpHeaderSerializer::serialize(MemoryOutputStream& stream, const Ptr<const
 
     // SCTP chunks:
     int32 numChunks = sctpHeader->getSctpChunksArraySize();
-    stream.writeUint32Be(numChunks);
+    //stream.writeUint32Be(numChunks);
     for (int32 cc = 0; cc < numChunks; cc++) {
         SctpChunk *chunk = const_cast<SctpChunk *>(check_and_cast<const SctpChunk *>((sctpHeader)->getSctpChunks(cc)));
         unsigned char chunkType = chunk->getSctpChunkType();
         switch (chunkType) {
             case DATA: {
                 SctpDataChunk *dataChunk = check_and_cast<SctpDataChunk *>(chunk);
-                std::cout << "serialize data chunk" << endl;
+                //std::cout << "serialize data chunk" << endl;
+                //std::cout << "chunkLength of this chunk: " << (sctpHeader->getChunkLength() - B(16)).str().c_str() << endl;
+                //std::cout << "stream before: " << stream.getLength().str().c_str() << endl;
                 serializeDataChunk(stream, dataChunk);
+                //std::cout << "stream after: " << stream.getLength().str().c_str() << endl;
                 break;
             }
             case INIT: {
                 SctpInitChunk *initChunk = check_and_cast<SctpInitChunk *>(chunk);
-                std::cout << "serialize init chunk" << endl;
+                //std::cout << "serialize init chunk" << endl;
                 serializeInitChunk(stream, initChunk);
                 break;
             }
             case INIT_ACK: {
                 SctpInitAckChunk *initAckChunk = check_and_cast<SctpInitAckChunk *>(chunk);
-                std::cout << "serialize init ack chunk" << endl;
+                //std::cout << "serialize init ack chunk" << endl;
                 serializeInitAckChunk(stream, initAckChunk);
                 break;
             }
             case SACK: {
                 SctpSackChunk *sackChunk = check_and_cast<SctpSackChunk *>(chunk);
-                std::cout << "serialize sack chunk" << endl;
+                //std::cout << "serialize sack chunk" << endl;
                 serializeSackChunk(stream, sackChunk);
                 break;
             }
             case NR_SACK: {
                 SctpSackChunk *sackChunk = check_and_cast<SctpSackChunk *>(chunk);
-                std::cout << "serialize nrsack chunk" << endl;
+                //std::cout << "serialize nrsack chunk" << endl;
                 serializeNrSackChunk(stream, sackChunk);
                 break;
             }
             case HEARTBEAT : {
                 SctpHeartbeatChunk *heartbeatChunk = check_and_cast<SctpHeartbeatChunk *>(chunk);
-                std::cout << "serialize heartbeat chunk" << endl;
+                //std::cout << "serialize heartbeat chunk" << endl;
                 serializeHeartbeatChunk(stream, heartbeatChunk);
                 break;
             }
             case HEARTBEAT_ACK : {
                 SctpHeartbeatAckChunk *heartbeatAckChunk = check_and_cast<SctpHeartbeatAckChunk *>(chunk);
-                std::cout << "serialize heartbeat ack chunk" << endl;
+                //std::cout << "serialize heartbeat ack chunk" << endl;
                 serializeHeartbeatAckChunk(stream, heartbeatAckChunk);
                 break;
             }
             case ABORT: {
                 SctpAbortChunk *abortChunk = check_and_cast<SctpAbortChunk *>(chunk);
-                std::cout << "serialize abort chunk" << endl;
+                //std::cout << "serialize abort chunk" << endl;
                 serializeAbortChunk(stream, abortChunk);
                 break;
             }
             case COOKIE_ECHO: {
                 SctpCookieEchoChunk *cookieChunk = check_and_cast<SctpCookieEchoChunk *>(chunk);
-                std::cout << "serialize cookie echo chunk" << endl;
+                //std::cout << "serialize cookie echo chunk" << endl;
                 serializeCookieEchoChunk(stream, cookieChunk);
                 break;
             }
             case COOKIE_ACK: {
                 SctpCookieAckChunk *cookieAckChunk = check_and_cast<SctpCookieAckChunk *>(chunk);
-                std::cout << "serialize cookie ack chunk" << endl;
+                //std::cout << "serialize cookie ack chunk" << endl;
                 serializeCookieAckChunk(stream, cookieAckChunk);
                 break;
             }
             case SHUTDOWN: {
                 SctpShutdownChunk *shutdownChunk = check_and_cast<SctpShutdownChunk *>(chunk);
-                std::cout << "serialize shutdown chunk" << endl;
+                //std::cout << "serialize shutdown chunk" << endl;
                 serializeShutdownChunk(stream, shutdownChunk);
                 break;
             }
             case SHUTDOWN_ACK: {
                 SctpShutdownAckChunk *shutdownAckChunk = check_and_cast<SctpShutdownAckChunk *>(chunk);
-                std::cout << "serialize shutdown ack chunk" << endl;
+                //std::cout << "serialize shutdown ack chunk" << endl;
                 serializeShutdownAckChunk(stream, shutdownAckChunk);
                 break;
             }
             case SHUTDOWN_COMPLETE: {
                 SctpShutdownCompleteChunk *shutdownCompleteChunk = check_and_cast<SctpShutdownCompleteChunk *>(chunk);
-                std::cout << "serialize shutdown complete chunk" << endl;
+                //std::cout << "serialize shutdown complete chunk" << endl;
                 serializeShutdownCompleteChunk(stream, shutdownCompleteChunk);
                 break;
             }
             case AUTH: {
                 SctpAuthenticationChunk *authChunk = check_and_cast<SctpAuthenticationChunk *>(chunk);
-                std::cout << "serialize auth chunk" << endl;
+                //std::cout << "serialize auth chunk" << endl;
                 serializeAuthenticationChunk(stream, authChunk);
                 break;
             }
             case FORWARD_TSN: {
                 SctpForwardTsnChunk *forward = check_and_cast<SctpForwardTsnChunk *>(chunk);
-                std::cout << "serialize forward tsn chunk" << endl;
+                //std::cout << "serialize forward tsn chunk" << endl;
                 serializeForwardTsnChunk(stream, forward);
                 break;
             }
             case ASCONF: {
                 SctpAsconfChunk *asconfChunk = check_and_cast<SctpAsconfChunk *>(chunk);
-                std::cout << "serialize asconf chunk" << endl;
+                //std::cout << "serialize asconf chunk" << endl;
                 serializeAsconfChangeChunk(stream, asconfChunk);
                 break;
             }
             case ASCONF_ACK: {
                 SctpAsconfAckChunk *asconfAckChunk = check_and_cast<SctpAsconfAckChunk *>(chunk);
-                std::cout << "serialize asconf ack chunk" << endl;
+                //std::cout << "serialize asconf ack chunk" << endl;
                 serializeAsconfAckChunk(stream, asconfAckChunk);
                 break;
             }
             case ERRORTYPE: {
                 SctpErrorChunk *errorchunk = check_and_cast<SctpErrorChunk *>(chunk);
-                std::cout << "serialize error type chunk" << endl;
+                //std::cout << "serialize error type chunk" << endl;
                 serializeErrorChunk(stream, errorchunk);
                 break;
             }
             case RE_CONFIG: {
                 SctpStreamResetChunk *streamReset = check_and_cast<SctpStreamResetChunk *>(chunk);
-                std::cout << "serialize reconfig chunk" << endl;
+                //std::cout << "serialize reconfig chunk" << endl;
                 serializeReConfigurationChunk(stream, streamReset);
                 break;
             }
-            case PKTDROP: {
-                SctpPacketDropChunk *packetdrop = check_and_cast<SctpPacketDropChunk *>(chunk);
-                std::cout << "serialize packet drop chunk" << endl;
+            //case PKTDROP: {
+                //SctpPacketDropChunk *packetdrop = check_and_cast<SctpPacketDropChunk *>(chunk);
+                //std::cout << "serialize packet drop chunk" << endl;
                 // TODO
-                break;
-            }
+            //    break;
+            //}
             default:
                 throw new cRuntimeError("Unknown chunk type %d in outgoing packet on external interface!", chunkType);
         }
     }
-    int remaining = b(sctpHeader->getChunkLength() - (stream.getLength() - startPos)).get();
-    if (remaining > 0)
-        stream.writeBitRepeatedly(false, remaining);
-    std::cout << "final length of stream (serialize): " << stream.getLength().get() << endl;
+    //int remaining = b(sctpHeader->getChunkLength() - (stream.getLength() - startPos)).get();
+    //if (remaining > 0)
+    //    stream.writeBitRepeatedly(false, remaining);
+    std::cout << "final length of stream (serialize): " << (stream.getLength() - startPos).str().c_str() << endl;
 }
 
 const Ptr<Chunk> SctpHeaderSerializer::deserialize(MemoryInputStream& stream) const
 {
-    std::cout << "initial length of stream (deserialize): " << stream.getRemainingLength().get() << endl;
+    std::cout << "initial length of stream (deserialize): " << stream.getRemainingLength().str().c_str() << endl;
     auto sctpHeader = makeShared<SctpHeader>();
     sctpHeader->setSourcePort(stream.readUint16Be());
     sctpHeader->setDestPort(stream.readUint16Be());
@@ -1398,138 +1426,148 @@ const Ptr<Chunk> SctpHeaderSerializer::deserialize(MemoryInputStream& stream) co
     sctpHeader->setCrc(stream.readUint32Be());
 
 
-    int32_t numChunks = stream.readUint32Be();
+    //int32_t numChunks = stream.readUint32Be();
     //sctpHeader->setSctpChunksArraySize(numChunks);
     // catch ALL chunks - when a chunk is taken, the chunkPtr is set to the next chunk
-    for (int32_t cc = 0; cc < numChunks; cc++) {
+    //for (int32_t cc = 0; cc < numChunks; cc++) {
+    while (stream.getRemainingLength() > B(0)) {
         int8_t chunkType = stream.readByte();
         switch (chunkType) {
             case DATA: {
                 SctpDataChunk *dataChunk = new SctpDataChunk("DATA");
-                std::cout << "deserialize data chunk" << endl;
+                //std::cout << "deserialize data chunk" << endl;
+                //std::cout << "stream before: " << stream.getRemainingLength().str().c_str() << endl;
                 deserializeDataChunk(stream, dataChunk);
+                //std::cout << "stream after: " << stream.getRemainingLength().str().c_str() << endl;
                 sctpHeader->insertSctpChunks(dataChunk);
                 break;
             }
             case INIT: {
                 SctpInitChunk *initChunk = new SctpInitChunk("INIT");
-                std::cout << "deserialize init chunk" << endl;
+                //std::cout << "deserialize init chunk" << endl;
                 deserializeInitChunk(stream, initChunk);
                 sctpHeader->insertSctpChunks(initChunk);
                 break;
             }
             case INIT_ACK: {
                 SctpInitAckChunk *initAckChunk = new SctpInitAckChunk("INIT_ACK");
-                std::cout << "deserialize init ack chunk" << endl;
+                //std::cout << "deserialize init ack chunk" << endl;
                 deserializeInitAckChunk(stream, initAckChunk);
                 sctpHeader->insertSctpChunks(initAckChunk);
                 break;
             }
             case SACK: {
                 SctpSackChunk *sackChunk = new SctpSackChunk("SACK");
-                std::cout << "deserialize sack chunk" << endl;
+                //std::cout << "deserialize sack chunk" << endl;
                 deserializeSackChunk(stream, sackChunk);
+                sctpHeader->insertSctpChunks(sackChunk);
+                break;
+            }
+            case NR_SACK: {
+                SctpSackChunk *sackChunk = new SctpSackChunk("NR_SACK");
+                //std::cout << "deserialize nr sack chunk" << endl;
+                deserializeNrSackChunk(stream, sackChunk);
                 sctpHeader->insertSctpChunks(sackChunk);
                 break;
             }
             case HEARTBEAT: {
                 SctpHeartbeatChunk *heartbeatChunk = new SctpHeartbeatChunk("HEARTBEAT");
-                std::cout << "deserialize heartbeat chunk" << endl;
+                //std::cout << "deserialize heartbeat chunk" << endl;
                 deserializeHeartbeatChunk(stream, heartbeatChunk);
                 sctpHeader->insertSctpChunks(heartbeatChunk);
                 break;
             }
             case HEARTBEAT_ACK: {
                 SctpHeartbeatAckChunk *heartbeatAckChunk = new SctpHeartbeatAckChunk("HEARTBEAT_ACK");
-                std::cout << "deserialize heartbeat ack chunk" << endl;
+                //std::cout << "deserialize heartbeat ack chunk" << endl;
                 deserializeHeartbeatAckChunk(stream, heartbeatAckChunk);
                 sctpHeader->insertSctpChunks(heartbeatAckChunk);
                 break;
             }
             case ABORT: {
                 SctpAbortChunk *abortChunk = new SctpAbortChunk("ABORT");
-                std::cout << "deserialize abort chunk" << endl;
+                //std::cout << "deserialize abort chunk" << endl;
                 deserializeAbortChunk(stream, abortChunk);
                 sctpHeader->insertSctpChunks(abortChunk);
                 break;
             }
             case COOKIE_ECHO: {
                 SctpCookieEchoChunk *cookieChunk = new SctpCookieEchoChunk("COOKIE_ECHO");
-                std::cout << "deserialize cookie echo chunk" << endl;
+                //std::cout << "deserialize cookie echo chunk" << endl;
                 deserializeCookieEchoChunk(stream, cookieChunk);
                 sctpHeader->insertSctpChunks(cookieChunk);
                 break;
             }
             case COOKIE_ACK: {
                 SctpCookieAckChunk *cookieAckChunk = new SctpCookieAckChunk("COOKIE_ACK");
-                std::cout << "deserialize cookie ack chunk" << endl;
+                //std::cout << "deserialize cookie ack chunk" << endl;
                 deserializeCookieAckChunk(stream, cookieAckChunk);
                 sctpHeader->insertSctpChunks(cookieAckChunk);
                 break;
             }
             case SHUTDOWN: {
                 SctpShutdownChunk *shutdownChunk = new SctpShutdownChunk("SHUTDOWN");
-                std::cout << "deserialize shutdown chunk" << endl;
+                //std::cout << "deserialize shutdown chunk" << endl;
                 deserializeShutdownChunk(stream, shutdownChunk);
                 sctpHeader->insertSctpChunks(shutdownChunk);
                 break;
             }
             case SHUTDOWN_ACK: {
                 SctpShutdownAckChunk *shutdownAckChunk = new SctpShutdownAckChunk("SHUTDOWN_ACK");
-                std::cout << "deserialize shutdown ack chunk" << endl;
+                //std::cout << "deserialize shutdown ack chunk" << endl;
                 deserializeShutdownAckChunk(stream, shutdownAckChunk);
                 sctpHeader->insertSctpChunks(shutdownAckChunk);
                 break;
             }
             case SHUTDOWN_COMPLETE: {
                 SctpShutdownCompleteChunk *shutdownCompleteChunk = new SctpShutdownCompleteChunk("SHUTDOWN_COMPLETE");
-                std::cout << "deserialize shutdown complete chunk" << endl;
+                //std::cout << "deserialize shutdown complete chunk" << endl;
                 deserializeShutdownCompleteChunk(stream, shutdownCompleteChunk);
                 sctpHeader->insertSctpChunks(shutdownCompleteChunk);
                 break;
             }
             case ERRORTYPE: {
                 SctpErrorChunk *errorchunk = new SctpErrorChunk("ERROR");
-                std::cout << "deserialize error chunk" << endl;
+                //std::cout << "deserialize error chunk" << endl;
                 deserializeErrorChunk(stream, errorchunk);
                 sctpHeader->insertSctpChunks(errorchunk);
                 break;
             }
             case FORWARD_TSN: {
                 SctpForwardTsnChunk *forward = new SctpForwardTsnChunk("FORWARD_TSN");
-                std::cout << "deserialize forward tsn chunk" << endl;
+                //std::cout << "deserialize forward tsn chunk" << endl;
                 deserializeForwardTsnChunk(stream, forward);
                 sctpHeader->insertSctpChunks(forward);
                 break;
             }
             case AUTH: {
                 SctpAuthenticationChunk *authChunk = new SctpAuthenticationChunk("AUTH");
-                std::cout << "deserialize auth chunk" << endl;
+                //std::cout << "deserialize auth chunk" << endl;
                 deserializeAuthenticationChunk(stream, authChunk);
                 sctpHeader->insertSctpChunks(authChunk);
                 break;
             }
             case ASCONF: {
                 SctpAsconfChunk *asconfChunk = new SctpAsconfChunk("ASCONF");
-                std::cout << "deserialize asconf chunk" << endl;
+                //std::cout << "deserialize asconf chunk" << endl;
                 deserializeAsconfChangeChunk(stream, asconfChunk);
                 sctpHeader->insertSctpChunks(asconfChunk);
                 break;
             }
             case ASCONF_ACK: {
                 SctpAsconfAckChunk *asconfAckChunk = new SctpAsconfAckChunk("ASCONF_ACK");
-                std::cout << "deserialize asconf ack chunk" << endl;
+                //std::cout << "deserialize asconf ack chunk" << endl;
                 deserializeAsconfAckChunk(stream, asconfAckChunk);
                 sctpHeader->insertSctpChunks(asconfAckChunk);
                 break;
             }
             case RE_CONFIG: {
                 SctpStreamResetChunk *chunk = new SctpStreamResetChunk("RE_CONFIG");
-                std::cout << "deserialize re-config chunk" << endl;
+                //std::cout << "deserialize re-config chunk" << endl;
                 // TODO
                 break;
             }
-            case PKTDROP: {
+            //case PKTDROP: {
              /*   const struct pktdrop_chunk *drop;
                 drop = (struct pktdrop_chunk *)(chunks + chunkPtr);
                 SctpPacketDropChunk *dropChunk;
@@ -1546,15 +1584,15 @@ const Ptr<Chunk> SctpHeaderSerializer::deserialize(MemoryInputStream& stream) co
                 SctpHeader *msg;
                 msg = new SctpHeader();
                 parse((unsigned char *)chunks + chunkPtr + 16, bufsize - sizeof(struct common_header) - chunkPtr - 16, msg);*/
-                break;
-            }
+            //    break;
+            //}
             default:
                 EV_ERROR << "Parser: Unknown SCTP chunk type " << chunkType;
                 break;
         }
     }
-    stream.readBitRepeatedly(false, b(stream.getRemainingLength()).get());
-    std::cout << "final length of stream (deserialize): " << stream.getRemainingLength().get() << endl;
+    //stream.readBitRepeatedly(false, b(stream.getRemainingLength()).get());
+    //std::cout << "final length of stream (deserialize): " << stream.getRemainingLength().get() << endl;
     return sctpHeader;
 }
 
