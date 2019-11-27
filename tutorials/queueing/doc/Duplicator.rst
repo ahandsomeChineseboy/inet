@@ -4,6 +4,9 @@ Duplicator
 This step demonstrates the :ned:`PacketDuplicator` module, which creates a configured number of duplicates
 of incoming packets.
 
+The :ned:`PacketDuplicator` module creates a configured number of duplicates
+of incoming packets.
+
 In this step, packets are produced periodically by an active packet source
 (:ned:`ActivePacketSource`). The produced packets are randomly either duplicated or not
 (:ned:`PacketDuplicator`). Finally, the packets are all sent into a passive packet

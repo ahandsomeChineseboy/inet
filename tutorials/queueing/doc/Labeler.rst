@@ -5,7 +5,7 @@ The :ned:`LabelClassifier` module attaches a label
 to incoming packets based on a configured packet classifier function.
 The :ned:`LabelClassifier` module classifies packets according to the attached label.
 
-The :ned:`LabelClassifier` module attaches a label
+The :ned:`LabelClassifier` module attaches a text label
 to incoming packets based on a configured packet classifier function.
 Based on the attached label, the :ned:`LabelClassifier` module classifies packets to
 one of its outputs.

@@ -1,7 +1,7 @@
 Generating Tokens Based on Received Signals
 ===========================================
 
-The :ned:`SignalBasedTokenGenerator` module generates tokens based on received signals.
+The :ned:`SignalBasedTokenGenerator` module generates tokens into a token-based server when receiving signals.
 
 .. figure:: media/SignalBasedTokenGenerator.png
    :width: 80%

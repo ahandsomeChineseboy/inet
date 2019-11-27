@@ -4,6 +4,9 @@ Ordinal-Based Duplicator
 This step demonstrates the :ned:`OrdinalBasedDuplicator` module. The module duplicates packets
 based on the ordinal number of incoming packets.
 
+The :ned:`OrdinalBasedDuplicator` module duplicates packets
+based on the ordinal number of incoming packets.
+
 In this step, packets are produced periodically by an active packet source
 (:ned:`ActivePacketSource`). The packets are consumed by a passive packet sink (:ned:`PassivePacketSink`).
 Packets are passed through from the source to the sink by a duplicator (:ned:`OrdinalBasedDuplicator`).

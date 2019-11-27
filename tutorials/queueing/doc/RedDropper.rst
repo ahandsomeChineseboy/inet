@@ -1,4 +1,4 @@
-Red Dropper
+RED Dropper
 ===========
 
 This step demonstrates the :ned:`RedDropper` module, which implements the Random Early Detection

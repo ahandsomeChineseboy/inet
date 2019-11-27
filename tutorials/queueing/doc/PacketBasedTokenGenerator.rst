@@ -2,7 +2,7 @@ Generating Tokens after Received Packets
 ========================================
 
 The :ned:`PacketBasedTokenGenerator` is a passive packet sink, and generates
-a configurable number of tokens when receiving a packet.
+a configurable number of tokens into a token-based server when receiving a packet.
 
 .. figure:: media/PacketBasedTokenGenerator.png
    :width: 100%

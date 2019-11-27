@@ -1,6 +1,8 @@
 Gate with an Active Sink
 ========================
 
+This step is similar to the previous one, but with an active packet sink and passive packet source.
+
 In this step, packets are collected periodically by an active packet sink
 (:ned:`ActivePacketSink`). The packets pass through a packet gate if it's open,
 otherwise packets are not generated. The packets are provided by a passive

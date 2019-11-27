@@ -1,12 +1,12 @@
 Demultiplexer
 =============
 
-This step demonstrates the :ned:`PacketDemultiplexer` module. On request, the module pops packets
-from the provider connected to its input, and forwards it to the collector connected to one
-of its outputs.
+.. This step demonstrates the :ned:`PacketDemultiplexer` module. On request, the module pops packets
+   from the provider connected to its input, and forwards it to the collector connected to one
+   of its outputs.
 
-This step demonstrates the :ned:`PacketDemultiplexer` module. The module connects to a provider
-on its input and multiple collectors on its outputs. When one of the collectors requests a packet
+The :ned:`PacketDemultiplexer` module connects to a passive packet source
+on its input and multiple active packet sinks on its outputs. When one of the collectors requests a packet
 from the demultiplexer, it pops a packet from the provider and forwards it to the collector.
 
 In this step, packets are collected periodically (randomly) by several active

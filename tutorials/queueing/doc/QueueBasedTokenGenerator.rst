@@ -1,7 +1,7 @@
 Generating Tokens When a Queue Becomes Empty
 ============================================
 
-The :ned:`QueueBasedTokenGenerator` module generates tokens when an observed queue becomes empty.
+The :ned:`QueueBasedTokenGenerator` module generates tokens into a token-based server when an observed queue becomes empty.
 The module can be used by applications to create traffic that completely utilizes a network interface,
 for example.
 

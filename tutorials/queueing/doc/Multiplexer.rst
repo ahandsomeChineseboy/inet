@@ -1,6 +1,9 @@
 Multiplexer
 ===========
 
+The :ned:`PacketMultiplexer` module connects to multiple active packet sources on its
+inputs, and pushes all incoming packets onto a passive packet sink on its single output.
+
 In this step, packets are produced periodically (randomly) by several active
 packet sources (:ned:`ActivePacketSource`). The packets are consumed by a single passive
 packet sink upon arrival (:ned:`PassivePacketSink`). The single sink is connected to the
