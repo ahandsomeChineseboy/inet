@@ -17,13 +17,14 @@
 #include "inet/common/packet/chunk/FieldsChunk.h"
 #include "inet/common/packet/serializer/ChunkSerializer.h"
 #include "inet/common/packet/serializer/ChunkSerializerRegistry.h"
-#include "inet/common/ObjectPrinter.h"
-#include "inet/linklayer/ethernet/EtherFrame_m.h"
-#include "inet/transportlayer/common/TransportPseudoHeader_m.h"
-#include "inet/applications/base/ApplicationPacket_m.h"
-#include "inet/networklayer/ted/LinkStatePacket_m.h"
-#include "inet/networklayer/rsvpte/RsvpHelloMsg_m.h"
-#include <fstream>
+//#include "inet/common/ObjectPrinter.h"
+//#include "inet/linklayer/ethernet/EtherFrame_m.h"
+//#include "inet/transportlayer/common/TransportPseudoHeader_m.h"
+//#include "inet/applications/base/ApplicationPacket_m.h"
+//#include "inet/networklayer/ted/LinkStatePacket_m.h"
+//#include "inet/networklayer/rsvpte/RsvpHelloMsg_m.h"
+//#include <fstream>
+//#include "inet/transportlayer/sctp/SctpHeader.h"
 
 namespace inet {
 
@@ -159,9 +160,17 @@ std::string Chunk::str() const
 
 void Chunk::serialize(MemoryOutputStream& stream, const Ptr<const Chunk>& chunk, b offset, b length)
 {
-    //CHUNK_CHECK_USAGE(length >= b(-1), "length is invalid");
-    //CHUNK_CHECK_USAGE(b(0) <= offset && offset <= chunk->getChunkLength(), "offset is out of range");
+    CHUNK_CHECK_USAGE(length >= b(-1), "length is invalid");
+    CHUNK_CHECK_USAGE(b(0) <= offset && offset <= chunk->getChunkLength(), "offset is out of range");
     const Chunk *chunkPointer = chunk.get();
+    /*if (dynamic_cast<const inet::sctp::SctpHeader*>(chunkPointer) != nullptr) {
+        std::cout << "chunkLength before: " << chunk->getChunkLength().str().c_str() << endl;
+        std::cout << "stream length before: " << stream.getLength().str().c_str() << endl;
+        std::cout << "offset: " << offset.str().c_str() << endl;
+        std::cout << "length: " << length.str().c_str() << endl;
+        if (chunk->getChunkLength() == B(1484))
+            std::cout << "here we go" << endl;
+    }*/
     auto serializer = ChunkSerializerRegistry::globalRegistry.getSerializer(typeid(*chunkPointer));
 #if CHUNK_CHECK_IMPLEMENTATION_ENABLED
     auto startPosition = stream.getLength();
@@ -173,15 +182,23 @@ void Chunk::serialize(MemoryOutputStream& stream, const Ptr<const Chunk>& chunk,
 #if CHUNK_CHECK_IMPLEMENTATION_ENABLED
     auto endPosition = stream.getLength();
     auto expectedChunkLength = length == b(-1) ? chunk->getChunkLength() - offset : length;
-    //CHUNK_CHECK_IMPLEMENTATION(expectedChunkLength == endPosition - startPosition);
-    if (dynamic_cast<const FieldsChunk*>(chunkPointer) != nullptr && dynamic_cast<const EthernetPadding*>(chunkPointer) == nullptr && dynamic_cast<const TransportPseudoHeader*>(chunkPointer) == nullptr && dynamic_cast<const ApplicationPacket*>(chunkPointer) == nullptr && dynamic_cast<const LinkStateMsg*>(chunkPointer) == nullptr && dynamic_cast<const RsvpHelloMsg*>(chunkPointer) == nullptr){
-        ObjectPrinter p(nullptr, "*: not mutable and not className and not fullName and not fullPath and not info and not rawBin and not rawHex and not tags and not payloadProtocol and not id and not treeId and not *Tag and not creationTime and not crc and not checksumOk and not crcMode and not chunkLength and not complete");
+    CHUNK_CHECK_IMPLEMENTATION(expectedChunkLength == endPosition - startPosition);
+    /*if (dynamic_cast<const SliceChunk*>(chunkPointer) == nullptr && dynamic_cast<const FieldsChunk*>(chunkPointer) != nullptr && dynamic_cast<const EthernetPadding*>(chunkPointer) == nullptr && dynamic_cast<const TransportPseudoHeader*>(chunkPointer) == nullptr && dynamic_cast<const ApplicationPacket*>(chunkPointer) == nullptr && dynamic_cast<const LinkStateMsg*>(chunkPointer) == nullptr && dynamic_cast<const RsvpHelloMsg*>(chunkPointer) == nullptr){
+        ObjectPrinter p(nullptr, "*: not mutable and not className and not fullName and not fullPath and not info and not rawBin and not rawHex and not tags and not payloadProtocol and not id and not treeId and not *Tag and not creationTime and not crc and not checksumOk and not crcMode and not enqueuingTime and not firstSendTime");
         std::string orig = p.printObjectToString(const_cast<Chunk*>(chunk.get()));
 
         std::vector<uint8_t> bytes;
         stream.copyData(bytes, startPosition, endPosition - startPosition);
         MemoryInputStream tmpStream(bytes);
         const Ptr<Chunk> restoredChunk = deserialize(tmpStream, typeid(*chunkPointer));
+        if (dynamic_cast<const inet::sctp::SctpHeader*>(chunkPointer) != nullptr) {
+            std::cout << "endPosition: " << endPosition.str().c_str() << endl;
+            std::cout << "startPosition: " << startPosition.str().c_str() << endl;
+            std::cout << "length of stream: " << stream.getLength().str().c_str() << endl;
+            std::cout << "after: " << restoredChunk->getChunkLength().str().c_str() << endl;
+            std::cout << "length of byte array: " << bytes.size() << endl;
+            std::cout << "length of stream created from the byte array: " << tmpStream.getLength().str().c_str() << endl;
+        }
         std::string restored = p.printObjectToString(restoredChunk.get());
 
         if (orig != restored) {
@@ -199,7 +216,7 @@ void Chunk::serialize(MemoryOutputStream& stream, const Ptr<const Chunk>& chunk,
             system("meld /home/marcell/1 /home/marcell/2");
             ASSERT(false);
         }
-    }
+    }*/
 #endif
 }
 
