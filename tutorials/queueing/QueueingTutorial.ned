@@ -150,7 +150,7 @@ network MarkovClassifierTutorialStep
 //-------------------------------------------------
 
 
-network ClassifierTutorialStep
+network WrrClassifierTutorialStep
 {
     @display("bgb=600,300");
     submodules:
