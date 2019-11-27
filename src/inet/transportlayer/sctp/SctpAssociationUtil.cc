@@ -1181,7 +1181,7 @@ void SctpAssociation::sendAbort(uint16 tBit)
 
     msg->setSrcPort(localPort);
     msg->setDestPort(remotePort);
-    SctpAbortChunk *abortChunk = new SctpAbortChunk();
+    SctpAbortChunk *abortChunk = new SctpAbortChunk("ABORT");
     abortChunk->setSctpChunkType(ABORT);
     abortChunk->setT_Bit(tBit);
     abortChunk->setByteLength(SCTP_ABORT_CHUNK_LENGTH);
