@@ -117,6 +117,19 @@ Packet *MarkovClassifier::popPacket(cGate *gate)
     return packet;
 }
 
+const char *MarkovClassifier::resolveDirective(char directive)
+{
+    static std::string result;
+    switch (directive) {
+        case 's':
+            result = std::to_string(state);
+            break;
+        default:
+            return PacketProcessorBase::resolveDirective(directive);
+    }
+    return result.c_str();
+}
+
 void MarkovClassifier::handleCanPopPacket(cGate *gate)
 {
     Enter_Method("handleCanPopPacket");
