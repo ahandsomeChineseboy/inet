@@ -1,5 +1,7 @@
-Requesting Protocol Specific Behavior (too generic in the sense that the reader doesn't know what behavior: VLAN, outgoing interface)
-=====================================
+Requesting Protocol-Specific Behavior for Packets
+=================================================
+
+.. Requesting Protocol Specific Behavior (too generic in the sense that the reader doesn't know what behavior: VLAN, outgoing interface)
 
 This step demonstrates the :ned:`PacketTagger` module, which attaches various request tags to packets.
 
