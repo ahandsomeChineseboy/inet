@@ -12,11 +12,11 @@ consumed by a single passive sink (:ned:`PassivePacketSink`).
    :align: center
 
 .. literalinclude:: ../QueueingTutorial.ned
-   :start-at: network Burst1TutorialStep
+   :start-at: network MarkovSchedulerTutorialStep
    :end-before: //----
    :language: ned
 
 .. literalinclude:: ../omnetpp.ini
-   :start-at: Config Burst1
+   :start-at: Config MarkovScheduler
    :end-at: waitIntervals
    :language: ini

@@ -27,7 +27,7 @@ and a priorty scheduler (:ned:`PriorityScheduler`).
    :language: ned
 
 .. literalinclude:: ../QueueingTutorial.ned
-   :start-at: module TestCompoundPacketQueue
+   :start-at: module ExampleCompoundPriorityQueue
    :end-before: //----
    :language: ned
 
