@@ -1,7 +1,7 @@
 Markov Chain Based Scheduler
 ============================
 
-In this step, packets are periodically (randomly) produced by two active sources
+In this step, packets are at random intervals produced by two active sources
 (:ned:`ActivePacketSource`). One source produces packets with a slower rate while the other
 source uses a faster rate. The two packet sources are combined using a Markov
 chain (:ned:`MarkovScheduler`) with random transition matrix and random wait intervals. The packets are

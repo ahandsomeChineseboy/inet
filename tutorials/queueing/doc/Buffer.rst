@@ -7,8 +7,8 @@ Storing Packets on Behalf of Multiple Queues
 This step demonstrates the :ned:`PacketBuffer` module. The module stores packets on
 behalf of multiple queues, acting as a shared packet buffer for them.
 
-In this step, packets are produced periodically (randomly) by two active packet
-sources (:ned:`ActivePacketSource`). The packets are collected periodically (randomly)
+In this step, packets are produced at random intervals by two active packet
+sources (:ned:`ActivePacketSource`). The packets are collected at random intervals
 by two active packet sinks (:ned:`ActivePacketSink`). The sources and the sinks are
 connected by packet queues (:ned:`PacketQueue`) and packets are stored in a shared packet
 buffer (:ned:`PacketBuffer`). The packet buffer drops packets from the beginning of

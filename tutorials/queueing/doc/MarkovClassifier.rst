@@ -1,7 +1,7 @@
 Markov Chain Based Classifier
 =============================
 
-In this step, packets are periodically (randomly) collected by two active sinks
+In this step, packets are at random intervals collected by two active sinks
 (:ned:`ActivePacketSink`). One sink collects packets with a slower rate while the other
 sink uses a faster rate. The two packet sinks are combined using a Markov
 chain (:ned:`MarkovClassifier`) with random transition matrix and random wait intervals. The packets are

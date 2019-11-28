@@ -6,8 +6,8 @@ number of packets.
 
 The :ned:`PacketQueue` module stores a configurable number of packets.
 
-In this step, packets are produced periodically (randomly) by an active packet
-source (:ned:`ActivePacketSource`). The packets are collected periodically (randomly) by
+In the following example network, packets are produced at random intervals by an active packet
+source (:ned:`ActivePacketSource`). The packets are collected at random intervals by
 an active packet sink (:ned:`ActivePacketSink`). The source and the sink is connected
 by a FIFO queue (:ned:`PacketQueue`) where packets are stored temporarily.
 

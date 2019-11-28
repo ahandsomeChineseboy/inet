@@ -28,6 +28,7 @@ Classifying Packets from One Input to Multiple Outputs
    WrrClassifier
    MarkovClassifier
    PriorityClassifier
+   ContentBasedClassifier
 
 Schedulers
 

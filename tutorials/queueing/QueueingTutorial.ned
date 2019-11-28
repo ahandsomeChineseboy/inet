@@ -3,6 +3,7 @@ package inet.tutorials.queueing;
 
 import inet.queueing.buffer.PacketBuffer;
 import inet.queueing.buffer.PriorityBuffer;
+import inet.queueing.classifier.ContentBasedClassifier;
 import inet.queueing.classifier.LabelClassifier;
 import inet.queueing.classifier.MarkovClassifier;
 import inet.queueing.classifier.PacketClassifier;
@@ -149,6 +150,30 @@ network MarkovClassifierTutorialStep
 
 //-------------------------------------------------
 
+network GenericClassifierTutorialStep
+{
+    @display("bgb=600,300");
+    submodules:
+        producer: ActivePacketSource {
+            @display("p=100,100");
+        }
+        classifier: PacketClassifier {
+            @display("p=300,100");
+        }
+        consumer1: PassivePacketSink {
+            @display("p=500,100");
+        }
+        consumer2: PassivePacketSink {
+            @display("p=500,200");
+        }
+    connections allowunconnected:
+        producer.out --> classifier.in;
+        classifier.out++ --> consumer1.in;
+        classifier.out++ --> consumer2.in;
+}
+
+//-------------------------------------------------
+
 
 network WrrClassifierTutorialStep
 {
@@ -174,14 +199,14 @@ network WrrClassifierTutorialStep
 
 //-------------------------------------------------
 
-network GenericClassifierTutorialStep
+network ContentBasedClassifierTutorialStep
 {
     @display("bgb=600,300");
     submodules:
         producer: ActivePacketSource {
             @display("p=100,100");
         }
-        classifier: PacketClassifier {
+        classifier: ContentBasedClassifier {
             @display("p=300,100");
         }
         consumer1: PassivePacketSink {
@@ -959,7 +984,7 @@ network PacketBasedTokenGeneratorTutorialStep
     @display("bgb=1000,250");
     submodules:
         producer: ActivePacketSource {
-           @display("p=100,125");
+            @display("p=100,125");
         }
         provider: PassivePacketSource {
             @display("p=500,125");

@@ -9,8 +9,8 @@ The :ned:`PriorityBuffer` module has a configurable
 packet dropping stragegy. By default, the module drops packets belonging to the last
 connected queue.
 
-In this step, packets are produced periodically (randomly) by two active packet
-sources (:ned:`ActivePacketSource`). The packets are collected periodically (randomly)
+In this step, packets are produced at random intervals by two active packet
+sources (:ned:`ActivePacketSource`). The packets are collected at random intervals
 by two active packet sinks (:ned:`ActivePacketSink`). The sources and the sinkes are
 connected by packet queues (:ned:`PacketQueue`) and packets are stored in shared packet
 buffer (:ned:`PacketBuffer`). The packet buffer drops packets when it gets overloaded
