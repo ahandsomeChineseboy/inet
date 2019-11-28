@@ -30,14 +30,16 @@ Classifying Packets from One Input to Multiple Outputs
    PriorityClassifier
    ContentBasedClassifier
 
-Schedulers
+Scheduling Packets from Multiple Inputs to One Output
 
 .. toctree::
    :maxdepth: 1
 
-   Scheduler
+   GenericScheduler
+   WrrScheduler
    MarkovScheduler
    PriorityScheduler
+   ContentBasedScheduler
 
 Advanced Queues and Buffers
 

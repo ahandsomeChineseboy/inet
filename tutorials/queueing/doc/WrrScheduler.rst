@@ -1,5 +1,5 @@
-Scheduler
-=========
+Weighted Round-Robin Scheduler
+==============================
 
 This step demonstrates the Weighted Round-robin Scheduler (:ned:`WrrScheduler`) module.
 
