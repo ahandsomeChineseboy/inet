@@ -74,18 +74,29 @@ class INET_API MediumVisualizerBase : public VisualizerBase, public cListener
     cFigure::Color communicationRangeLineColor;
     cFigure::LineStyle communicationRangeLineStyle;
     double communicationRangeLineWidth = NaN;
+    bool autoPowerAxis = false;
+    WpHz signalMinPower = WpHz(NaN);
+    WpHz signalMaxPower = WpHz(NaN);
+    bool autoTimeAxis = false;
+    simtime_t signalMinTime;
+    simtime_t signalMaxTime;
+    bool autoFrequencyAxis = false;
+    Hz signalMinFrequency = Hz(NaN);
+    Hz signalMaxFrequency = Hz(NaN);
+    bool displayPowerDensityMaps = false;
+    double powerDensityMapFigureWidth = NaN;
+    double powerDensityMapFigureHeight = NaN;
     bool displaySpectrums = false;
     double spectrumFigureWidth = NaN;
     double spectrumFigureHeight = NaN;
     double spectrumFigureInterpolationSize = NaN;
-    bool spectrumAutoFrequencyAxis = false;
-    Hz spectrumMinFrequency = Hz(NaN);
-    Hz spectrumMaxFrequency = Hz(NaN);
-    bool spectrumAutoPowerAxis = false;
-    WpHz spectrumMinPower = WpHz(NaN);
-    WpHz spectrumMaxPower = WpHz(NaN);
     Placement spectrumPlacementHint;
     double spectrumPlacementPriority;
+    bool displaySpectograms = false;
+    double spectogramFigureWidth = NaN;
+    double spectogramFigureHeight = NaN;
+    Placement spectogramPlacementHint;
+    double spectogramPlacementPriority;
     //@}
 
     /** @name State */

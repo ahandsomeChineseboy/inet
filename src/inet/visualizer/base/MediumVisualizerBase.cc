@@ -80,18 +80,29 @@ void MediumVisualizerBase::initialize(int stage)
         communicationRangeLineWidth = par("communicationRangeLineWidth");
         signalPropagationAnimationSpeed = par("signalPropagationAnimationSpeed");
         signalTransmissionAnimationSpeed = par("signalTransmissionAnimationSpeed");
+        autoPowerAxis = par("autoPowerAxis");
+        signalMinPower = WpHz(dBmWpMHz2WpHz(par("signalMinPower")));
+        signalMaxPower = WpHz(dBmWpMHz2WpHz(par("signalMaxPower")));
+        autoTimeAxis = par("autoTimeAxis");
+        signalMinTime = par("signalMinTime");
+        signalMaxTime= par("signalMaxTime");
+        autoFrequencyAxis = par("autoFrequencyAxis");
+        signalMinFrequency = Hz(par("signalMinFrequency"));
+        signalMaxFrequency = Hz(par("signalMaxFrequency"));
+        displayPowerDensityMaps = par("displayPowerDensityMaps");
+        powerDensityMapFigureWidth = par("powerDensityMapFigureWidth");
+        powerDensityMapFigureHeight = par("powerDensityMapFigureHeight");
         displaySpectrums = par("displaySpectrums");
         spectrumFigureWidth = par("spectrumFigureWidth");
         spectrumFigureHeight = par("spectrumFigureHeight");
         spectrumFigureInterpolationSize = par("spectrumFigureInterpolationSize");
-        spectrumAutoFrequencyAxis = par("spectrumAutoFrequencyAxis");
-        spectrumMinFrequency = Hz(par("spectrumMinFrequency"));
-        spectrumMaxFrequency = Hz(par("spectrumMaxFrequency"));
-        spectrumAutoPowerAxis = par("spectrumAutoPowerAxis");
-        spectrumMinPower = WpHz(dBmWpMHz2WpHz(par("spectrumMinPower")));
-        spectrumMaxPower = WpHz(dBmWpMHz2WpHz(par("spectrumMaxPower")));
         spectrumPlacementHint = parsePlacement(par("spectrumPlacementHint"));
         spectrumPlacementPriority = par("spectrumPlacementPriority");
+        displaySpectograms = par("displaySpectograms");
+        spectogramFigureWidth = par("spectogramFigureWidth");
+        spectogramFigureHeight = par("spectogramFigureHeight");
+        spectogramPlacementHint = parsePlacement(par("spectogramPlacementHint"));
+        spectogramPlacementPriority = par("spectogramPlacementPriority");
         mediumPowerFunction = makeShared<SumFunction<WpHz, Domain<m, m, m, simsec, Hz>>>();
         radioMedium = getModuleFromPar<IRadioMedium>(par("mediumModule"), this, false);
         if (radioMedium != nullptr) {
@@ -203,6 +214,7 @@ void MediumVisualizerBase::handleSignalAdded(const physicallayer::ITransmission 
         const auto& pathLossFunction = makeShared<PathLossFunction>(radioMedium->getPathLoss());
         mps propagationSpeed = radioMedium->getPropagation()->getPropagationSpeed();
         Point<m, m, m> startPosition(m(transmission->getStartPosition().x), m(transmission->getStartPosition().y), m(transmission->getStartPosition().z));
+        auto startTime = transmission->getStartTime();
         const auto& startOrientation = transmission->getStartOrientation();
         const auto& propagatedTransmissionPowerFunction = makeShared<PropagatedTransmissionPowerFunction>(transmissionPowerFunction, startPosition, propagationSpeed);
         Ptr<const IFunction<WpHz, Domain<m, m, m, simsec, Hz>>> receptionPowerFunction;
@@ -222,6 +234,33 @@ void MediumVisualizerBase::handleSignalAdded(const physicallayer::ITransmission 
         }
         mediumPowerFunction->addElement(receptionPowerFunction);
         receptionPowerFunctions[transmission] = receptionPowerFunction;
+        if (autoPowerAxis) {
+            auto l = concat(startPosition, transmissionPowerFunction->getDomain().getLower());
+            auto u = concat(startPosition, transmissionPowerFunction->getDomain().getUpper());
+            Interval<m, m, m, simsec, Hz> domain(l, u, 0b11110, 0b11100, 0b11100);
+            mediumPowerFunction->partition(domain, [&] (const Interval<m, m, m, simsec, Hz>& i, const IFunction<WpHz, Domain<m, m, m, simsec, Hz>> *f) {
+                WpHz minPower = f->getMin(i);
+                if (minPower > WpHz(0))
+                    signalMinPower = std::min(signalMinPower, minPower);
+                signalMaxPower = std::max(signalMaxPower, f->getMax(i));
+            });
+        }
+        if (autoTimeAxis || autoFrequencyAxis) {
+            transmissionPowerFunction->partition(transmissionPowerFunction->getDomain(), [&] (const Interval<simsec, Hz>& i, const IFunction<WpHz, Domain<simsec, Hz>> *f) {
+                if (auto constantFunction = dynamic_cast<const ConstantFunction<WpHz, Domain<simsec, Hz>> *>(f)) {
+                    if (constantFunction->getConstantValue() == WpHz(0))
+                        return;
+                }
+                if (autoTimeAxis) {
+                    signalMinTime = std::min(signalMinTime.dbl(), (simsec(std::get<0>(i.getLower())).get() - startTime).dbl());
+                    signalMaxTime = std::max(signalMaxTime.dbl(), (simsec(std::get<0>(i.getUpper())).get() - startTime).dbl());
+                }
+                if (autoFrequencyAxis) {
+                    signalMinFrequency = std::min(signalMinFrequency, std::get<1>(i.getLower()));
+                    signalMaxFrequency = std::max(signalMaxFrequency, std::get<1>(i.getUpper()));
+                }
+            });
+        }
     }
 }
 

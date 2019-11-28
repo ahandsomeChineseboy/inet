@@ -97,26 +97,49 @@ void MediumCanvasVisualizer::initialize(int stage)
             communicationHeat->setWidth(max.x - min.x);
             communicationHeat->setHeight(max.y - min.y);
         }
-        if (displaySpectrums) {
-            for (cModule::SubmoduleIterator it(visualizationSubjectModule); !it.end(); it++) {
-                auto networkNode = *it;
-                if (isNetworkNode(networkNode) && networkNodeFilter.matches(networkNode)) {
+        if (displayPowerDensityMaps) {
+            powerDensityMapFigure = new HeatMapPlotFigure();
+            powerDensityMapFigure->setTags("power_density_map");
+            powerDensityMapFigure->setTooltip("This plot represents the signal energy over time");
+            powerDensityMapFigure->setZIndex(zIndex);
+            powerDensityMapFigure->setPlotSize(cFigure::Point(powerDensityMapFigureWidth, powerDensityMapFigureHeight));
+            cCanvas *canvas = visualizationTargetModule->getCanvas();
+            canvas->addFigure(powerDensityMapFigure, 0);
+        }
+        for (cModule::SubmoduleIterator it(visualizationSubjectModule); !it.end(); it++) {
+            auto networkNode = *it;
+            if (isNetworkNode(networkNode) && networkNodeFilter.matches(networkNode)) {
+                auto networkNodeVisualization = networkNodeVisualizer->getNetworkNodeVisualization(networkNode);
+                if (displaySpectrums) {
                     auto networkNodeVisualization = networkNodeVisualizer->getNetworkNodeVisualization(networkNode);
-                    auto plotFigure = new PlotFigure();
-                    plotFigure->setNumSeries(3);
-                    plotFigure->setLineColor(0, cFigure::parseColor("darkblue"));
-                    plotFigure->setLineColor(1, cFigure::parseColor("darkred"));
-                    plotFigure->setLineColor(2, cFigure::parseColor("darkgreen"));
-                    plotFigure->setXAxisLabel("[GHz]");
-                    plotFigure->setYAxisLabel("[dBmW/MHz]");
-                    plotFigure->setXValueFormat("%.3f");
-                    plotFigure->setYValueFormat("%.0f");
-                    plotFigure->setTags("spectrum");
-                    plotFigure->setTooltip("This plot represents the signal spectral power density");
-                    plotFigure->setZIndex(zIndex);
-                    plotFigure->setPlotSize(cFigure::Point(spectrumFigureWidth, spectrumFigureHeight));
-                    networkNodeVisualization->addAnnotation(plotFigure, plotFigure->getSize(), spectrumPlacementHint, spectrumPlacementPriority);
-                    spectrumFigures[networkNode] = plotFigure;
+                    auto sepctrumFigure = new PlotFigure();
+                    sepctrumFigure->setNumSeries(3);
+                    sepctrumFigure->setLineColor(0, cFigure::parseColor("darkblue"));
+                    sepctrumFigure->setLineColor(1, cFigure::parseColor("darkred"));
+                    sepctrumFigure->setLineColor(2, cFigure::parseColor("darkgreen"));
+                    sepctrumFigure->setXAxisLabel("[GHz]");
+                    sepctrumFigure->setYAxisLabel("[dBmW/MHz]");
+                    sepctrumFigure->setXValueFormat("%.3f");
+                    sepctrumFigure->setYValueFormat("%.0f");
+                    sepctrumFigure->setTags("spectrum");
+                    sepctrumFigure->setTooltip("This plot represents the signal spectral power density");
+                    sepctrumFigure->setZIndex(zIndex);
+                    sepctrumFigure->setPlotSize(cFigure::Point(spectrumFigureWidth, spectrumFigureHeight));
+                    networkNodeVisualization->addAnnotation(sepctrumFigure, sepctrumFigure->getSize(), spectrumPlacementHint, spectrumPlacementPriority);
+                    spectrumFigures[networkNode] = sepctrumFigure;
+                }
+                if (displaySpectograms) {
+                    auto spectogramFigure = new HeatMapPlotFigure();
+                    spectogramFigure->setXAxisLabel("[GHz]");
+                    spectogramFigure->setYAxisLabel("[s]");
+                    spectogramFigure->setXValueFormat("%.3f");
+                    spectogramFigure->setYValueFormat("%.3f");
+                    spectogramFigure->setTags("spectrum");
+                    spectogramFigure->setTooltip("This plot represents the signal energy over time");
+                    spectogramFigure->setZIndex(zIndex);
+                    spectogramFigure->setPlotSize(cFigure::Point(spectogramFigureWidth, spectogramFigureHeight));
+                    networkNodeVisualization->addAnnotation(spectogramFigure, spectogramFigure->getBounds().getSize(), spectogramPlacementHint, spectogramPlacementPriority);
+                    spectrogramFigures[networkNode] = spectogramFigure;
                 }
             }
         }
@@ -125,17 +148,75 @@ void MediumCanvasVisualizer::initialize(int stage)
 
 void MediumCanvasVisualizer::refreshDisplay() const
 {
+    if (displaySignals || displayPowerDensityMaps)
+        const_cast<MediumCanvasVisualizer *>(this)->setAnimationSpeed();
     if (displaySignals) {
         for (auto transmission : transmissions)
             if (matchesTransmission(transmission))
                 refreshSignalFigure(transmission);
-        const_cast<MediumCanvasVisualizer *>(this)->setAnimationSpeed();
     }
-    if (displayCommunicationHeat)
-        communicationHeat->coolDown();
+    if (displayPowerDensityMaps)
+        refreshPowerDensityMapFigure();
     if (displaySpectrums)
         for (auto it : spectrumFigures)
             refreshSpectrumFigure(it.first, it.second);
+    if (displaySpectograms)
+        for (auto it : spectrogramFigures)
+            refreshSpectogramFigure(it.first, it.second);
+    if (displayCommunicationHeat)
+        communicationHeat->coolDown();
+}
+
+void MediumCanvasVisualizer::refreshPowerDensityMapFigure() const
+{
+    if (signalMinFrequency < signalMaxFrequency) {
+        double minValue = wpHz2dBmWpMHz(WpHz(signalMinPower).get());
+        double maxValue = wpHz2dBmWpMHz(WpHz(signalMaxPower).get());
+        powerDensityMapFigure->setMinX(0);
+        powerDensityMapFigure->setMaxX(600);
+        powerDensityMapFigure->setMinY(0);
+        powerDensityMapFigure->setMaxY(400);
+        powerDensityMapFigure->setMinValue(minValue);
+        powerDensityMapFigure->setMaxValue(maxValue);
+        auto centerFrequency = (signalMinFrequency + signalMaxFrequency) / 2;
+        auto bandwidth = signalMaxFrequency - signalMinFrequency;
+        auto bandpassFilter = makeShared<OneDimensionalBoxcarFunction<double, Hz>>(centerFrequency - bandwidth / 2, centerFrequency + bandwidth / 2, 1);
+        auto f = integrate<WpHz, Domain<m, m, m, simsec, Hz>, 0b11110, W, Domain<m, m, m, simsec>>(mediumPowerFunction); // TODO: ->multiply(bandpassFilter));
+        for (auto x = 0; x < powerDensityMapFigureWidth; x++) {
+            for (auto y = 0; y < powerDensityMapFigureHeight; y++) {
+//                auto value = f->getValue(Point<m, m, m, simsec>(m(x), m(y), m(0), simsec(simTime())));
+//                powerDensityMapFigure->setValue(x, y, wpHz2dBmWpMHz(W(value).get()));
+                auto value = mediumPowerFunction->getValue(Point<m, m, m, simsec, Hz>(m(x), m(y), m(0), simsec(simTime()), centerFrequency));
+                powerDensityMapFigure->setValue(x, y, wpHz2dBmWpMHz(WpHz(value).get()));
+            }
+        }
+//        Point<m, m, m, simsec, Hz> l(m(minPosition.x), m(minPosition.y), m(minPosition.z), simsec(simTime()), frequency);
+//        Point<m, m, m, simsec, Hz> u(m(maxPosition.x), m(maxPosition.y), m(maxPosition.z), simsec(simTime()), frequency);
+//        Interval<m, m, m, simsec, Hz> i(l, u, 0b00111, 0b00111, 0b00111);
+//        // TODO: integrate<WpHz, Domain<simsec, Hz>, 0b10, W, Domain<simsec>>(power)
+//        mediumPowerFunction->partition(i, [&] (const Interval<m, m, m, simsec, Hz>& j, const IFunction<WpHz, Domain<m, m, m, simsec, Hz>> *partitonPowerFunction) {
+//            auto lower = j.getLower();
+//            auto upper = j.getUpper();
+//            auto x1 = m(std::get<0>(lower)).get();
+//            auto x2 = m(std::get<0>(upper)).get();
+//            auto y1 = m(std::get<1>(lower)).get();
+//            auto y2 = m(std::get<1>(upper)).get();
+//            if (auto cf = dynamic_cast<const ConstantFunction<WpHz, Domain<m, m, m, simsec, Hz>> *>(partitonPowerFunction)) {
+//                auto v = wpHz2dBmWpMHz(WpHz(cf->getConstantValue()).get());
+//                powerDensityMapFigure->setConstantValue(x1, x2, y1, y2, v);
+//            }
+//            else if (auto lf = dynamic_cast<const UnilinearFunction<WpHz, Domain<m, m, m, simsec, Hz>> *>(partitonPowerFunction)) {
+//                auto vl = wpHz2dBmWpMHz(WpHz(lf->getRLower()).get());
+//                auto vu = wpHz2dBmWpMHz(WpHz(lf->getRUpper()).get());
+//                powerDensityMapFigure->setLinearValue(x1, x2, y1, y2, vl, vu, lf->getDimension() - 3);
+//            }
+//            else
+//                throw cRuntimeError("TODO");
+//        });
+        powerDensityMapFigure->setXTickCount(1);
+        powerDensityMapFigure->setYTickCount(1);
+        powerDensityMapFigure->refreshDisplay();
+    }
 }
 
 void MediumCanvasVisualizer::refreshSpectrumFigure(const cModule *networkNode, PlotFigure *figure) const
@@ -145,14 +226,7 @@ void MediumCanvasVisualizer::refreshSpectrumFigure(const cModule *networkNode, P
     const IAntenna *antenna;
     IMobility *mobility;
     std::tie(transmissionInProgress, receptionInProgress, antenna, mobility) = extractSpectrumFigureParameters(networkNode);
-    if (spectrumAutoFrequencyAxis) {
-        auto nonCostThisPtr = const_cast<MediumCanvasVisualizer *>(this);
-        if (transmissionInProgress != nullptr)
-            nonCostThisPtr->updateSpectrumFigureFrequencyBounds(transmissionInProgress);
-        if (receptionInProgress != nullptr)
-            nonCostThisPtr->updateSpectrumFigureFrequencyBounds(receptionInProgress);
-    }
-    if (spectrumMinFrequency < spectrumMaxFrequency) {
+    if (signalMinFrequency < signalMaxFrequency) {
         figure->clearValues(0);
         figure->clearValues(1);
         figure->clearValues(2);
@@ -169,8 +243,8 @@ void MediumCanvasVisualizer::refreshSpectrumFigure(const cModule *networkNode, P
             refreshSpectrumFigurePowerFunction(noisePowerFunction, antenna, position, figure, 1);
             refreshSpectrumFigurePowerFunction(signalPowerFunction, antenna, position, figure, 2);
         }
-        double minValue = wpHz2dBmWpMHz(WpHz(spectrumMinPower).get());
-        double maxValue = wpHz2dBmWpMHz(WpHz(spectrumMaxPower).get());
+        double minValue = wpHz2dBmWpMHz(WpHz(signalMinPower).get());
+        double maxValue = wpHz2dBmWpMHz(WpHz(signalMaxPower).get());
         if (minValue < maxValue) {
             double margin = 0.05 * (maxValue - minValue);
             figure->setMinY(minValue - margin);
@@ -208,10 +282,9 @@ std::tuple<const ITransmission *, const ITransmission *, const IAntenna *, IMobi
 
 void MediumCanvasVisualizer::refreshSpectrumFigurePowerFunction(const Ptr<const IFunction<WpHz, Domain<m, m, m, simsec, Hz>>>& powerFunction, const IAntenna *antenna, const Coord& position, PlotFigure *figure, int series) const
 {
-    auto nonCostThisPtr = const_cast<MediumCanvasVisualizer *>(this);
-    auto marginFrequency = 0.05 * (spectrumMaxFrequency - spectrumMinFrequency);
-    auto minFrequency = spectrumMinFrequency - marginFrequency;
-    auto maxFrequency = spectrumMaxFrequency + marginFrequency;
+    auto marginFrequency = 0.05 * (signalMaxFrequency - signalMinFrequency);
+    auto minFrequency = signalMinFrequency - marginFrequency;
+    auto maxFrequency = signalMaxFrequency + marginFrequency;
     figure->setMinX(GHz(minFrequency).get());
     figure->setMaxX(GHz(maxFrequency).get());
     Point<m, m, m, simsec, Hz> l(m(position.x), m(position.y), m(position.z), simsec(simTime()), minFrequency);
@@ -243,8 +316,6 @@ void MediumCanvasVisualizer::refreshSpectrumFigurePowerFunction(const Ptr<const 
             figure->setValue(series, xi, wpHz2dBmWpMHz(WpHz(yi).get()));
             figure->setValue(series, xj, wpHz2dBmWpMHz(WpHz(yj).get()));
         }
-        if (spectrumAutoPowerAxis)
-            nonCostThisPtr->updateSpectrumFigurePowerBounds(j, partitonPowerFunction);
     });
 }
 
@@ -305,27 +376,55 @@ std::pair<WpHz, WpHz> MediumCanvasVisualizer::computePowerForDirectionalAntenna(
     return {power1, power2};
 }
 
-void MediumCanvasVisualizer::updateSpectrumFigureFrequencyBounds(const ITransmission *transmission)
+void MediumCanvasVisualizer::refreshSpectogramFigure(const cModule *networkNode, HeatMapPlotFigure *figure) const
 {
-    if (auto dimensionalTransmission = dynamic_cast<const DimensionalTransmission *>(transmission)) {
-        const auto& powerFunction = dimensionalTransmission->getPower();
-        powerFunction->partition(powerFunction->getDomain(), [&] (const Interval<simsec, Hz>& i, const IFunction<WpHz, Domain<simsec, Hz>> *f) {
-            if (auto constantFunction = dynamic_cast<const ConstantFunction<WpHz, Domain<simsec, Hz>> *>(f)) {
-                if (constantFunction->getConstantValue() == WpHz(0))
-                    return;
+    const ITransmission *transmissionInProgress;
+    const ITransmission *receptionInProgress;
+    const IAntenna *antenna;
+    IMobility *mobility;
+    std::tie(transmissionInProgress, receptionInProgress, antenna, mobility) = extractSpectrumFigureParameters(networkNode);
+    if (signalMinFrequency < signalMaxFrequency) {
+        auto minTime = simTime() + signalMinTime;
+        auto maxTime = simTime() + signalMaxTime;
+        double minValue = wpHz2dBmWpMHz(WpHz(signalMinPower).get());
+        double maxValue = wpHz2dBmWpMHz(WpHz(signalMaxPower).get());
+        auto marginFrequency = 0.05 * (signalMaxFrequency - signalMinFrequency);
+        auto minFrequency = signalMinFrequency - marginFrequency;
+        auto maxFrequency = signalMaxFrequency + marginFrequency;
+        figure->setMinX(GHz(minFrequency).get());
+        figure->setMaxX(GHz(maxFrequency).get());
+        figure->setMinY(minTime.dbl());
+        figure->setMaxY(maxTime.dbl());
+        figure->setMinValue(minValue);
+        figure->setMaxValue(maxValue);
+        auto position = mobility->getCurrentPosition();
+        const auto& signalPowerFunction = receptionPowerFunctions.find(transmissionInProgress)->second;
+        Point<m, m, m, simsec, Hz> l(m(position.x), m(position.y), m(position.z), simsec(minTime), minFrequency);
+        Point<m, m, m, simsec, Hz> u(m(position.x), m(position.y), m(position.z), simsec(maxTime), maxFrequency);
+        Interval<m, m, m, simsec, Hz> i(l, u, 0b11100, 0b11100, 0b11100);
+        mediumPowerFunction->partition(i, [&] (const Interval<m, m, m, simsec, Hz>& j, const IFunction<WpHz, Domain<m, m, m, simsec, Hz>> *partitonPowerFunction) {
+            auto lower = j.getLower();
+            auto upper = j.getUpper();
+            auto x1 = GHz(std::get<4>(lower)).get();
+            auto x2 = GHz(std::get<4>(upper)).get();
+            auto y1 = simsec(std::get<3>(lower)).get().dbl();
+            auto y2 = simsec(std::get<3>(upper)).get().dbl();
+            if (auto cf = dynamic_cast<const ConstantFunction<WpHz, Domain<m, m, m, simsec, Hz>> *>(partitonPowerFunction)) {
+                auto v = wpHz2dBmWpMHz(WpHz(cf->getConstantValue()).get());
+                figure->setConstantValue(x1, x2, y1, y2, v);
             }
-            spectrumMinFrequency = std::min(spectrumMinFrequency, std::get<1>(i.getLower()));
-            spectrumMaxFrequency = std::max(spectrumMaxFrequency, std::get<1>(i.getUpper()));
+            else if (auto lf = dynamic_cast<const UnilinearFunction<WpHz, Domain<m, m, m, simsec, Hz>> *>(partitonPowerFunction)) {
+                auto vl = wpHz2dBmWpMHz(WpHz(lf->getRLower()).get());
+                auto vu = wpHz2dBmWpMHz(WpHz(lf->getRUpper()).get());
+                figure->setLinearValue(x1, x2, y1, y2, vl, vu, lf->getDimension() - 3);
+            }
+            else
+                throw cRuntimeError("TODO");
         });
+        figure->setXTickCount(3);
+        figure->setYTickCount(5);
+        figure->refreshDisplay();
     }
-}
-
-void MediumCanvasVisualizer::updateSpectrumFigurePowerBounds(const Interval<m, m, m, simsec, Hz>& i, const IFunction<WpHz, Domain<m, m, m, simsec, Hz>> *f)
-{
-    WpHz minPower = f->getMin(i);
-    if (minPower > WpHz(0))
-        spectrumMinPower = std::min(spectrumMinPower, minPower);
-    spectrumMaxPower = std::max(spectrumMaxPower, f->getMax(i));
 }
 
 void MediumCanvasVisualizer::setAnimationSpeed()
@@ -632,12 +731,15 @@ void MediumCanvasVisualizer::handleSignalAdded(const ITransmission *transmission
 {
     Enter_Method_Silent();
     MediumVisualizerBase::handleSignalAdded(transmission);
-    if (displaySignals && matchesTransmission(transmission)) {
+    if (matchesTransmission(transmission)) {
         transmissions.push_back(transmission);
-        cGroupFigure *signalFigure = createSignalFigure(transmission);
-        signalLayer->addFigure(signalFigure);
-        setSignalFigure(transmission, signalFigure);
-        setAnimationSpeed();
+        if (displaySignals) {
+            cGroupFigure *signalFigure = createSignalFigure(transmission);
+            signalLayer->addFigure(signalFigure);
+            setSignalFigure(transmission, signalFigure);
+        }
+        if (displaySignals || displayPowerDensityMaps)
+            setAnimationSpeed();
     }
 }
 
@@ -645,13 +747,16 @@ void MediumCanvasVisualizer::handleSignalRemoved(const ITransmission *transmissi
 {
     Enter_Method_Silent();
     MediumVisualizerBase::handleSignalRemoved(transmission);
-    if (displaySignals && matchesTransmission(transmission)) {
+    if (matchesTransmission(transmission)) {
         transmissions.erase(std::remove(transmissions.begin(), transmissions.end(), transmission));
-        cFigure *signalFigure = getSignalFigure(transmission);
-        removeSignalFigure(transmission);
-        if (signalFigure != nullptr)
-            delete signalLayer->removeFigure(signalFigure);
-        setAnimationSpeed();
+        if (displaySignals) {
+            cFigure *signalFigure = getSignalFigure(transmission);
+            removeSignalFigure(transmission);
+            if (signalFigure != nullptr)
+                delete signalLayer->removeFigure(signalFigure);
+        }
+        if (displaySignals || displayPowerDensityMaps)
+            setAnimationSpeed();
     }
 }
 
@@ -659,7 +764,7 @@ void MediumCanvasVisualizer::handleSignalDepartureStarted(const ITransmission *t
 {
     Enter_Method_Silent();
     if (matchesTransmission(transmission)) {
-        if (displaySignals)
+        if (displaySignals || displayPowerDensityMaps)
             setAnimationSpeed();
         if (displaySignalDepartures) {
             auto transmitter = transmission->getTransmitter();
@@ -684,7 +789,7 @@ void MediumCanvasVisualizer::handleSignalDepartureEnded(const ITransmission *tra
 {
     Enter_Method_Silent();
     if (matchesTransmission(transmission)) {
-        if (displaySignals)
+        if (displaySignals || displayPowerDensityMaps)
             setAnimationSpeed();
         if (displaySignalDepartures) {
             auto transmitter = transmission->getTransmitter();
@@ -701,7 +806,7 @@ void MediumCanvasVisualizer::handleSignalArrivalStarted(const IReception *recept
 {
     Enter_Method_Silent();
     if (matchesTransmission(reception->getTransmission())) {
-        if (displaySignals)
+        if (displaySignals || displayPowerDensityMaps)
             setAnimationSpeed();
         if (displaySignalArrivals) {
             auto receiver = reception->getReceiver();
@@ -739,7 +844,7 @@ void MediumCanvasVisualizer::handleSignalArrivalEnded(const IReception *receptio
 {
     Enter_Method_Silent();
     if (matchesTransmission(reception->getTransmission())) {
-        if (displaySignals)
+        if (displaySignals || displayPowerDensityMaps)
             setAnimationSpeed();
         if (displaySignalArrivals) {
             auto receiver = reception->getReceiver();

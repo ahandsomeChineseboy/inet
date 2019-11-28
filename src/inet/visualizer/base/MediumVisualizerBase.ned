@@ -68,18 +68,32 @@ simple MediumVisualizerBase extends VisualizerBase
         string interferenceRangeLineStyle = default("solid"); // interference range circle line style, solid by default
         double interferenceRangeLineWidth = default(1); // interference range circle line width, 1 by default
 
+        bool autoPowerAxis = default(true); // enables automatic power axis configuration
+        double signalMinPower @unit(dBmWpMHz) = default(inf dBmWpMHz);
+        double signalMaxPower @unit(dBmWpMHz) = default(-inf dBmWpMHz);
+        bool autoTimeAxis = default(true); // enables automatic time axis configuration
+        double signalMinTime @unit(s) = default(0 s);
+        double signalMaxTime @unit(s) = default(0 s);
+        bool autoFrequencyAxis = default(true); // enables automatic frequency axis configuration
+        double signalMinFrequency @unit(Hz) = default(inf Hz);
+        double signalMaxFrequency @unit(Hz) = default(-inf Hz);
+
+        bool displayPowerDensityMaps = default(false);
+        double powerDensityMapFigureWidth = default(600); // plot figure width in pixels
+        double powerDensityMapFigureHeight = default(400); // plot figure height in pixels
+
         bool displaySpectrums = default(false); // display power spectrum density at the nodes, can be enabled with dimensional analog models only
         double spectrumFigureWidth = default(100); // plot figure width in pixels
         double spectrumFigureHeight = default(60); // plot figure height in pixels
         double spectrumFigureInterpolationSize = default(5); // power spectrum density interpolation distance along the frequency axis
-        bool spectrumAutoFrequencyAxis = default(true); // enables automatic frequency axis configuration
-        double spectrumMinFrequency @unit(Hz) = default(inf Hz);
-        double spectrumMaxFrequency @unit(Hz) = default(-inf Hz);
-        bool spectrumAutoPowerAxis = default(true); // enables automatic power axis configuration
-        double spectrumMinPower @unit(dBmWpMHz) = default(inf dBmWpMHz);
-        double spectrumMaxPower @unit(dBmWpMHz) = default(-inf dBmWpMHz);
         string spectrumPlacementHint = default("bottomCenter"); // annotation placement hint, space separated list of any, top, bottom, left, right, topLeft, topCenter, topRight, etc. 
         double spectrumPlacementPriority = default(-1); // determines the order of annotation positioning
+
+        bool displaySpectograms = default(false);
+        double spectogramFigureWidth = default(100); // plot figure width in pixels
+        double spectogramFigureHeight = default(60); // plot figure height in pixels
+        string spectogramPlacementHint = default("bottomCenter"); // annotation placement hint, space separated list of any, top, bottom, left, right, topLeft, topCenter, topRight, etc. 
+        double spectogramPlacementPriority = default(-1); // determines the order of annotation positioning
 
         @class(MediumVisualizerBase);
 }
